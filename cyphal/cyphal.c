@@ -7,6 +7,10 @@
 
 #include "cyphal.h"
 
+#ifndef CYPHAL_DF
+uint32_t TxMailbox;
+#endif
+
 CanardInstance canard;
 CanardTxQueue queue;
 
@@ -17,13 +21,23 @@ uint32_t micros(void) {
     return 0;
 }
 
+void* memAllocate(CanardInstance* const ins, const size_t amount)
+{
+    (void) ins;
+    return o1heapAllocate(o1heap, amount);
+}
+
+void memFree(CanardInstance* const ins, void* const pointer)
+{
+    (void) ins;
+    o1heapFree(o1heap, pointer);
+}
+
 void init_cyphal(CanardNodeID NodeId) {
     canard = canardInit(&memAllocate, &memFree);
     canard.node_id = NodeId;
 
-    queue = canardTxInit(100, CANARD_MTU_CAN_FD);
-
-    subscribe_all();
+    queue = canardTxInit(100, CANARD_MTU_CAN_CLASSIC);
 }
 
 void send_heartbeat() {
@@ -58,6 +72,7 @@ void send_heartbeat() {
     heartbeatTransferId++;
 }
 
+#ifdef STM32_G
 const uint32_t CanardFDCANLengthToDLC[65] = {
         // 0-8
         FDCAN_DLC_BYTES_0,  FDCAN_DLC_BYTES_1,  FDCAN_DLC_BYTES_2,  FDCAN_DLC_BYTES_3,
@@ -96,6 +111,7 @@ static inline uint8_t CanardDLCToFDCANLength(uint32_t fdcan_dlc) {
     }
     return 32 + 16 * (dlc_index - 13);
 }
+#endif
 
 void process_tx_queue() {
     // Look at top of the TX queue of individual CAN frames
@@ -106,6 +122,7 @@ void process_tx_queue() {
         if ((0U == ti->tx_deadline_usec) || (ti->tx_deadline_usec > micros()))  // Check the deadline.
         {
             /* Instantiate a frame for the media layer */
+#ifdef STM32_G
             FDCAN_TxHeaderTypeDef TxHeader;
 
             TxHeader.Identifier = ti->frame.extended_can_id;
@@ -126,6 +143,23 @@ void process_tx_queue() {
             if ( HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &TxHeader, TxData) != HAL_OK) {
                 break;
             }
+#else
+            CAN_TxHeaderTypeDef TxHeader;
+
+            TxHeader.IDE = CAN_ID_EXT;
+            TxHeader.RTR = CAN_RTR_DATA;
+            TxHeader.DLC = CanardCANLengthToDLC[ti->frame.payload_size];;
+            TxHeader.ExtId = ti->frame.extended_can_id;
+
+            uint8_t TxData[8];
+
+            memcpy( TxData, (uint8_t *)ti->frame.payload, ti->frame.payload_size );
+
+            if ( HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) != HAL_OK)
+            {
+                break;
+            }
+#endif
         }
         // After the frame is transmitted or if it has timed out while waiting, pop it from the queue and deallocate:
         canard.memory_free(&canard, canardTxPop(&queue, ti));
@@ -152,12 +186,22 @@ void cyphal_push(
     }
 }
 
+#ifdef STM32_G
 void process_rx_frame(const FDCAN_RxHeaderTypeDef* RxHeader, uint8_t RxData[]) {
+#else
+void process_rx_frame(const CAN_RxHeaderTypeDef* RxHeader, uint8_t RxData[]) {
+#endif
     CanardFrame rxf;
 
+#ifdef STM32_G
     rxf.extended_can_id = RxHeader->Identifier;
     rxf.payload_size = CanardDLCToFDCANLength(RxHeader->DataLength);
+#else
+    rxf.extended_can_id = RxHeader->ExtId;
+    rxf.payload_size = CanardCANDLCToLength[RxHeader->DLC];
+#endif
     rxf.payload = (void*)RxData;
+
 
     CanardRxTransfer transfer = {.payload = NULL};
     CanardRxSubscription* subscription = NULL;

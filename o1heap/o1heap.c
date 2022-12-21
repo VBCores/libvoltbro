@@ -245,12 +245,6 @@ O1HEAP_PRIVATE void unbin(O1HeapInstance* const handle, const Fragment* const fr
 O1HeapInstance* o1heapInit(void* const base, const size_t size)
 {
     O1HeapInstance* out = NULL;
-    bool a = (base != NULL);
-    bool b = ((((size_t) base) % O1HEAP_ALIGNMENT) == 0U);
-    bool c = (size >= (INSTANCE_SIZE_PADDED + FRAGMENT_SIZE_MIN));
-    int d = O1HEAP_ALIGNMENT;
-    size_t e = (size_t) base;
-    size_t f = ((size_t) base) % O1HEAP_ALIGNMENT;
     if ((base != NULL) && ((((size_t) base) % O1HEAP_ALIGNMENT) == 0U) &&
         (size >= (INSTANCE_SIZE_PADDED + FRAGMENT_SIZE_MIN)))
     {

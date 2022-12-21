@@ -8,6 +8,8 @@
 #ifndef INC_CYPHAL_HPP_
 #define INC_CYPHAL_HPP_
 
+#include <libcanard/canard.h>
+
 // Shortcuts, always inlined
 
 #define absolute_inline __attribute__((always_inline)) static inline

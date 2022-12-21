@@ -9,7 +9,11 @@
 #define VOLTBROLIB_DRV8701_MOTOR_H_
 
 #include <stdbool.h>
+#ifdef STM32_G
 #include "stm32g4xx_hal.h"
+#else
+#include "stm32f4xx_hal.h"
+#endif
 #include "utils.h"
 #include "controllers/pid.h"
 
