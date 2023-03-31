@@ -5,6 +5,9 @@
  *      Author: igor
  */
 
+#ifdef HAL_DAC_MODULE_ENABLED
+#ifdef HAL_TIM_MODULE_ENABLED
+
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -147,3 +150,6 @@ int motor_set_Ichop(DriverConfig* config, double Ichop) {
     }
     return status == HAL_OK && !error;
 }
+
+#endif
+#endif

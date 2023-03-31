@@ -16,6 +16,13 @@
 #endif
 #include "utils.h"
 
+#ifdef __cplusplus
+#include <cstdint>
+extern "C" {
+#else
+#include <stdint.h>
+#endif
+
 typedef struct PIDConfig {
     const double p_gain;
     const double i_gain;
@@ -23,19 +30,23 @@ typedef struct PIDConfig {
     double integral_error;
     double prev_error;
     double integral_error_lim;
+    double signal;
 } PIDConfig;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-PIDConfig *create_pid_config(
+PIDConfig* make_pid_config(
     double p_gain,
     double i_gain,
     double d_gain
 );
 
-double regulation(PIDConfig *config, double error, uint32_t dt);
+void make_pid_config_reserved(
+        PIDConfig* dest,
+        double     p_gain,
+        double     i_gain,
+        double     d_gain
+);
+
+double regulation(PIDConfig *config, double error, double dt);
 
 #ifdef __cplusplus
 }

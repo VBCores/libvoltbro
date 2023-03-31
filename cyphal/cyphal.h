@@ -1,4 +1,3 @@
-#include <sys/cdefs.h>
 /*
  * cyphal.h
  *
@@ -8,6 +7,7 @@
 
 #ifndef INC_CYPHAL_H_
 #define INC_CYPHAL_H_
+#ifdef HAL_CAN_MODULE_ENABLED
 
 #ifndef STM32_G
 #include "stm32f4xx_hal.h"
@@ -35,7 +35,7 @@ extern CanardTxQueue queue;    // Prioritized transmission queue that keeps CAN 
 extern "C" {
 #endif
 
-_Noreturn extern void Error_Handler();
+extern void Error_Handler();
 
 uint32_t micros(void);
 
@@ -60,5 +60,6 @@ void process_rx_frame(const CAN_RxHeaderTypeDef *rx_header, uint8_t rx_data[]);
 
 #ifdef __cplusplus
 }
+#endif
 #endif
 #endif /* INC_CYPHAL_H_ */

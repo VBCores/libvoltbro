@@ -8,12 +8,16 @@
 #ifndef VOLTBROLIB_DRV8701_MOTOR_H_
 #define VOLTBROLIB_DRV8701_MOTOR_H_
 
-#include <stdbool.h>
 #ifdef STM32_G
 #include "stm32g4xx_hal.h"
 #else
 #include "stm32f4xx_hal.h"
 #endif
+
+#ifdef HAL_DAC_MODULE_ENABLED
+#ifdef HAL_TIM_MODULE_ENABLED
+
+#include <stdbool.h>
 #include "utils.h"
 #include "controllers/pid.h"
 
@@ -96,5 +100,6 @@ __attribute__((always_inline)) static inline double radian_speed_to_pwm(DriverCo
 #ifdef __cplusplus
 }
 #endif
-
+#endif
+#endif
 #endif /* VOLTBROLIB_DRV8701_MOTOR_H_ */

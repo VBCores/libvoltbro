@@ -5,6 +5,13 @@
  *      Author: Igor Beschastnov
  */
 
+#ifdef STM32_G
+#include "stm32g4xx_hal.h"
+#else
+#include "stm32f4xx_hal.h"
+#endif
+
+#ifdef HAL_CAN_MODULE_ENABLED
 #include "cyphal.h"
 
 #ifndef CYPHAL_DF
@@ -37,7 +44,7 @@ void init_cyphal(CanardNodeID NodeId) {
     canard = canardInit(&memAllocate, &memFree);
     canard.node_id = NodeId;
 
-    queue = canardTxInit(100, CANARD_MTU_CAN_CLASSIC);
+    queue = canardTxInit(200, CANARD_MTU_CAN_CLASSIC);
 }
 
 void send_heartbeat() {
@@ -114,6 +121,10 @@ static inline uint8_t CanardDLCToFDCANLength(uint32_t fdcan_dlc) {
 #endif
 
 void process_tx_queue() {
+    if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
+        return;
+    }
+
     // Look at top of the TX queue of individual CAN frames
     while (queue.size != 0)
     {
@@ -145,11 +156,11 @@ void process_tx_queue() {
             }
 #else
             CAN_TxHeaderTypeDef TxHeader;
-
             TxHeader.IDE = CAN_ID_EXT;
             TxHeader.RTR = CAN_RTR_DATA;
-            TxHeader.DLC = CanardCANLengthToDLC[ti->frame.payload_size];;
+            TxHeader.DLC = CanardCANLengthToDLC[ti->frame.payload_size];
             TxHeader.ExtId = ti->frame.extended_can_id;
+            TxHeader.TransmitGlobalTime = DISABLE;
 
             uint8_t TxData[8];
 
@@ -202,7 +213,6 @@ void process_rx_frame(const CAN_RxHeaderTypeDef* RxHeader, uint8_t RxData[]) {
 #endif
     rxf.payload = (void*)RxData;
 
-
     CanardRxTransfer transfer = {.payload = NULL};
     CanardRxSubscription* subscription = NULL;
     const int8_t accept_result = canardRxAccept(
@@ -229,3 +239,5 @@ exit:
         canard.memory_free(&canard, transfer.payload);
     }
 }
+
+#endif

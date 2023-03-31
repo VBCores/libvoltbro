@@ -3,11 +3,15 @@
  *
  *  Created on: Nov 24, 2022
  *      Author: Igor Beschastnov
+ *
+ *  Весь код в vblib сишный, за исключением шаблонов, которые могут пригодится если вы используете C++ и хотите убрать кучу boilerplate кода
  */
 
 #ifndef INC_CYPHAL_HPP_
 #define INC_CYPHAL_HPP_
+#ifdef HAL_CAN_MODULE_ENABLED
 
+#include "cyphal.h"
 #include <libcanard/canard.h>
 
 // Shortcuts, always inlined
@@ -134,4 +138,6 @@ absolute_inline void cyphal_deserialize_transfer(
         Error_Handler();
     }
 }
+
+#endif
 #endif /* INC_CYPHAL_HPP_ */
