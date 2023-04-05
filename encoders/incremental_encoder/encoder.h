@@ -14,24 +14,24 @@
 #include "stm32f4xx_hal.h"
 #endif
 
-#include "utils.h"
 #include "encoders/generic.h"
+#include "utils.h"
 
 #ifdef __cplusplus
 #include <cstdint>
 extern "C" {
 #else
-#include <stdlib.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 #endif
 
-typedef enum  {
-    A  = 0,
+typedef enum {
+    A = 0,
     AB = 1,
-    B  = 2,
+    B = 2,
     BC = 3,
-    C  = 4,
+    C = 4,
     CA = 5,
 } EncoderStep;
 
@@ -62,13 +62,13 @@ IncrementalEncoder* make_incr_encoder(
 );
 
 void make_incr_encoder_reserved(
-        IncrementalEncoder* dest,
-        uint16_t CPR,
-        bool inverted,
-        GPIO_TypeDef* pin_gpiox,
-        pin pin_1,
-        pin pin_2,
-        pin pin_3
+    IncrementalEncoder* dest,
+    uint16_t CPR,
+    bool inverted,
+    GPIO_TypeDef* pin_gpiox,
+    pin pin_1,
+    pin pin_2,
+    pin pin_3
 );
 void handle_encoder_channel(IncrementalEncoder* encoder, pin channel);
 

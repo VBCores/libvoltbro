@@ -15,7 +15,14 @@ extern float calib_elec_angle;
 #ifdef DEBUG
 static volatile float const_Vq;
 #endif
-void stupid_control(DriverState* driver, InverterState* inverter, PIDConfig* pid, uint16_t* dqa, uint16_t* dqb, uint16_t* dqc) {
+void stupid_control(
+    DriverState* driver,
+    InverterState* inverter,
+    PIDConfig* pid,
+    uint16_t* dqa,
+    uint16_t* dqb,
+    uint16_t* dqc
+) {
     float s = arm_sin_f32(driver->ElecTheta);
     float c = arm_cos_f32(driver->ElecTheta);
 
@@ -33,9 +40,10 @@ void stupid_control(DriverState* driver, InverterState* inverter, PIDConfig* pid
 
     float DVA, DVB, DVC;
 
-    abc(s, c, const_Vd, const_Vq, &DVA, &DVB, &DVC); //inverse dq0 transform on voltages
+    abc(s, c, const_Vd, const_Vq, &DVA, &DVB, &DVC
+    );  // inverse dq0 transform on voltages
 
-    *dqa = 1000 + (int16_t)(1000.0f*DVA);
-    *dqb = 1000 + (int16_t)(1000.0f*DVB);
-    *dqc = 1000 + (int16_t)(1000.0f*DVC);
+    *dqa = 1000 + (int16_t)(1000.0f * DVA);
+    *dqb = 1000 + (int16_t)(1000.0f * DVB);
+    *dqc = 1000 + (int16_t)(1000.0f * DVC);
 }

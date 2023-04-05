@@ -22,13 +22,13 @@
 #include <cstdint>
 extern "C" {
 #else
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 #endif
 
-#include "utils.h"
 #include "controllers/pid.h"
 #include "encoders/generic.h"
+#include "utils.h"
 
 #define FOC 0
 #define CLBR 1
@@ -40,19 +40,18 @@ extern "C" {
 #define NO_ACTION 7
 #define TESTS
 
-typedef struct
-{
+typedef struct {
     bool predict_change;
-    uint8_t State; // Device state such as FOC, Calibration etc*/
+    uint8_t State;  // Device state such as FOC, Calibration etc*/
     float encoder_filtering;
     float speed_filtering;
     float sampling_interval;
     uint16_t pulses_per_pair;
 
-    float ShaftAngle; // device's output shaft mechanical angle, rad
-    float ShaftVelocity; // device's output shaft angular velocity, rad/s
-    int32_t RotorTurns; // motor's rotor rotation number, int
-    float ElecTheta; // motor's electrical angle, electrical rad
+    float ShaftAngle;     // device's output shaft mechanical angle, rad
+    float ShaftVelocity;  // device's output shaft angular velocity, rad/s
+    int32_t RotorTurns;   // motor's rotor rotation number, int
+    float ElecTheta;      // motor's electrical angle, electrical rad
 
     // dynamically set FOC setpoints and gains
     float mech_SetP;
@@ -69,8 +68,7 @@ typedef struct
     float max_torque;
 } DriverState;
 
-typedef struct
-{
+typedef struct {
     float I_A;
     float I_B;
     float I_C;
@@ -79,7 +77,11 @@ typedef struct
     float busV;
 } InverterState;
 
-void CalculateAnglesSimple(DriverState* Driver, GEncoder* encoder, PIDConfig* pid);
+void CalculateAnglesSimple(
+    DriverState* Driver,
+    GEncoder* encoder,
+    PIDConfig* pid
+);
 void CalculateAngles(DriverState* Driver, GEncoder* encoder);
 void ProcessADC(InverterState* inverter, const uint32_t ADC_buf[]);
 void motor_control(
@@ -91,12 +93,13 @@ void motor_control(
     TIM_HandleTypeDef* htim
 );
 
-#define pi2 (2.0f*PI)
+#define pi2 (2.0f * PI)
 
-force_inline float calc_elec_theta(float encoder_data, uint16_t pulses_per_pair) {
-    float theta = pi2 * (
-            mfmod(encoder_data, pulses_per_pair) / (float)pulses_per_pair
-    ) - PI;
+force_inline float
+calc_elec_theta(float encoder_data, uint16_t pulses_per_pair) {
+    float theta =
+        pi2 * (mfmod(encoder_data, pulses_per_pair) / (float)pulses_per_pair) -
+        PI;
     if (theta < 0) {
         theta += pi2;
     }
@@ -104,9 +107,7 @@ force_inline float calc_elec_theta(float encoder_data, uint16_t pulses_per_pair)
 }
 
 force_inline float lp_filter(float beta, float yprev, float input) {
-    return (float)(
-            (1.0f - beta)*yprev + beta*input
-    );
+    return (float)((1.0f - beta) * yprev + beta * input);
 }
 
 #ifdef __cplusplus

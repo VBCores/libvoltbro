@@ -16,8 +16,8 @@
 
 #ifdef HAL_SPI_MODULE_ENABLED
 
-#include "utils.h"
 #include "encoders/generic.h"
+#include "utils.h"
 
 typedef enum AS5048ARegister {
     DIAG_AGC = 0x3FFD,
@@ -32,8 +32,8 @@ typedef enum AS5048ARegister {
 #include <cstdint>
 extern "C" {
 #else
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 #endif
 
 typedef struct AS5048AConfig {
@@ -65,9 +65,8 @@ void make_AS5048A_config_reserved(
 uint16_t AS5048A_read(AS5048AConfig* config, AS5048ARegister reg);
 uint16_t AS5048A_get_angle(AS5048AConfig* config);
 
-
 // ~200 ns delay for the SPI communication
-#pragma optimize=s none
+#pragma optimize = s none
 __attribute__((always_inline)) static inline void CS_delay(void) {
     uint8_t k = 32;
     while (k--) {
@@ -75,12 +74,16 @@ __attribute__((always_inline)) static inline void CS_delay(void) {
     }
 }
 
-__attribute__((always_inline)) static inline void AS5048A_start_transaction(AS5048AConfig* config) {
+__attribute__((always_inline)) static inline void AS5048A_start_transaction(
+    AS5048AConfig* config
+) {
     CS_delay();
     HAL_GPIO_WritePin(config->SPI_SS_GPIOx, config->SPI_SS, GPIO_PIN_RESET);
 }
 
-__attribute__((always_inline)) static inline void AS5048A_end_transaction(AS5048AConfig* config) {
+__attribute__((always_inline)) static inline void AS5048A_end_transaction(
+    AS5048AConfig* config
+) {
     HAL_GPIO_WritePin(config->SPI_SS_GPIOx, config->SPI_SS, GPIO_PIN_SET);
 }
 

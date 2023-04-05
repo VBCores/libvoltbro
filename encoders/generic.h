@@ -7,8 +7,8 @@
 #include <cstdint>
 extern "C" {
 #else
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 #endif
 
 typedef struct GEncoder {

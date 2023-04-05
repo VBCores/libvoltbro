@@ -8,7 +8,8 @@
 #include "circular_buffer.h"
 
 CircularBuffer* make_buffer(size_t capacity) {
-    CircularBuffer* buffer = malloc(sizeof(CircularBuffer) + sizeof(int32_t) * capacity);
+    CircularBuffer* buffer =
+        malloc(sizeof(CircularBuffer) + sizeof(int32_t) * capacity);
     if (buffer == NULL) {
         return NULL;
     }
@@ -19,11 +20,10 @@ CircularBuffer* make_buffer(size_t capacity) {
 void add_to_buffer(CircularBuffer* buffer, int32_t value) {
     if (buffer->size >= buffer->capacity) {
         for (int i = 1; i < buffer->capacity; i++) {
-            buffer->data[i-1] = buffer->data[i];
+            buffer->data[i - 1] = buffer->data[i];
         }
         buffer->data[buffer->capacity - 1] = value;
-    }
-    else {
+    } else {
         buffer->data[buffer->size] = value;
         buffer->size += 1;
     }

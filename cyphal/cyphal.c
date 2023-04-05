@@ -25,18 +25,17 @@ static CanardTransferID heartbeatTransferId = 0;
 static uint8_t hbeat_ser_buf[uavcan_node_Heartbeat_1_0_EXTENT_BYTES_];
 
 uint32_t micros(void) {
+    // TODO: ??? or remove
     return 0;
 }
 
-void* memAllocate(CanardInstance* const ins, const size_t amount)
-{
-    (void) ins;
+void* memAllocate(CanardInstance* const ins, const size_t amount) {
+    (void)ins;
     return o1heapAllocate(o1heap, amount);
 }
 
-void memFree(CanardInstance* const ins, void* const pointer)
-{
-    (void) ins;
+void memFree(CanardInstance* const ins, void* const pointer) {
+    (void)ins;
     o1heapFree(o1heap, pointer);
 }
 
@@ -50,30 +49,36 @@ void init_cyphal(CanardNodeID NodeId) {
 void send_heartbeat() {
     uint32_t tick = HAL_GetTick();
     uavcan_node_Heartbeat_1_0 heartbeat = {
-            .uptime = (uint32_t) (tick / 1000),
-            .health = {uavcan_node_Health_1_0_NOMINAL},
-            .mode = {uavcan_node_Mode_1_0_OPERATIONAL},
-            .vendor_specific_status_code = canard.node_id,
+        .uptime = (uint32_t)(tick / 1000),
+        .health = {uavcan_node_Health_1_0_NOMINAL},
+        .mode = {uavcan_node_Mode_1_0_OPERATIONAL},
+        .vendor_specific_status_code = canard.node_id,
     };
     // Serialize the heartbeat message
-    size_t hbeat_ser_buf_size = uavcan_node_Heartbeat_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;
-    if (uavcan_node_Heartbeat_1_0_serialize_(&heartbeat, hbeat_ser_buf, &hbeat_ser_buf_size) < 0)
-    {
+    size_t hbeat_ser_buf_size =
+        uavcan_node_Heartbeat_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;
+    if (uavcan_node_Heartbeat_1_0_serialize_(
+            &heartbeat,
+            hbeat_ser_buf,
+            &hbeat_ser_buf_size
+        ) < 0) {
         Error_Handler();
     }
     const CanardTransferMetadata heartbeat_transfer_metadata = {
-            .priority = CanardPriorityNominal,
-            .transfer_kind = CanardTransferKindMessage,
-            .port_id = uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_,
-            .remote_node_id = CANARD_NODE_ID_UNSET,
-            .transfer_id = heartbeatTransferId,
+        .priority = CanardPriorityNominal,
+        .transfer_kind = CanardTransferKindMessage,
+        .port_id = uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_,
+        .remote_node_id = CANARD_NODE_ID_UNSET,
+        .transfer_id = heartbeatTransferId,
     };
-    if( canardTxPush(&queue,
-                     &canard,
-                     0,
-                     &heartbeat_transfer_metadata,
-                     hbeat_ser_buf_size,
-                     hbeat_ser_buf) < 0 ) {
+    if (canardTxPush(
+            &queue,
+            &canard,
+            0,
+            &heartbeat_transfer_metadata,
+            hbeat_ser_buf_size,
+            hbeat_ser_buf
+        ) < 0) {
         Error_Handler();
     }
     heartbeatTransferId++;
@@ -81,31 +86,79 @@ void send_heartbeat() {
 
 #ifdef STM32_G
 const uint32_t CanardFDCANLengthToDLC[65] = {
-        // 0-8
-        FDCAN_DLC_BYTES_0,  FDCAN_DLC_BYTES_1,  FDCAN_DLC_BYTES_2,  FDCAN_DLC_BYTES_3,
-        FDCAN_DLC_BYTES_4,  FDCAN_DLC_BYTES_5,  FDCAN_DLC_BYTES_6,  FDCAN_DLC_BYTES_7,
-        FDCAN_DLC_BYTES_8,
-        // 9-12
-        FDCAN_DLC_BYTES_12,  FDCAN_DLC_BYTES_12,  FDCAN_DLC_BYTES_12,  FDCAN_DLC_BYTES_12,
-        // 13-16
-        FDCAN_DLC_BYTES_16, FDCAN_DLC_BYTES_16, FDCAN_DLC_BYTES_16, FDCAN_DLC_BYTES_16,
-        // 17-20
-        FDCAN_DLC_BYTES_20, FDCAN_DLC_BYTES_20, FDCAN_DLC_BYTES_20, FDCAN_DLC_BYTES_20,
-        // 20-24
-        FDCAN_DLC_BYTES_24, FDCAN_DLC_BYTES_24, FDCAN_DLC_BYTES_24, FDCAN_DLC_BYTES_24,
-        // 24-32
-        FDCAN_DLC_BYTES_32, FDCAN_DLC_BYTES_32, FDCAN_DLC_BYTES_32, FDCAN_DLC_BYTES_32,
-        FDCAN_DLC_BYTES_32, FDCAN_DLC_BYTES_32, FDCAN_DLC_BYTES_32, FDCAN_DLC_BYTES_32,
-        // 33-48
-        FDCAN_DLC_BYTES_48, FDCAN_DLC_BYTES_48, FDCAN_DLC_BYTES_48, FDCAN_DLC_BYTES_48,
-        FDCAN_DLC_BYTES_48, FDCAN_DLC_BYTES_48, FDCAN_DLC_BYTES_48, FDCAN_DLC_BYTES_48,
-        FDCAN_DLC_BYTES_48, FDCAN_DLC_BYTES_48, FDCAN_DLC_BYTES_48, FDCAN_DLC_BYTES_48,
-        FDCAN_DLC_BYTES_48, FDCAN_DLC_BYTES_48, FDCAN_DLC_BYTES_48, FDCAN_DLC_BYTES_48,
-        // 49-64
-        FDCAN_DLC_BYTES_64, FDCAN_DLC_BYTES_64, FDCAN_DLC_BYTES_64, FDCAN_DLC_BYTES_64,
-        FDCAN_DLC_BYTES_64, FDCAN_DLC_BYTES_64, FDCAN_DLC_BYTES_64, FDCAN_DLC_BYTES_64,
-        FDCAN_DLC_BYTES_64, FDCAN_DLC_BYTES_64, FDCAN_DLC_BYTES_64, FDCAN_DLC_BYTES_64,
-        FDCAN_DLC_BYTES_64, FDCAN_DLC_BYTES_64, FDCAN_DLC_BYTES_64, FDCAN_DLC_BYTES_64,
+    // 0-8
+    FDCAN_DLC_BYTES_0,
+    FDCAN_DLC_BYTES_1,
+    FDCAN_DLC_BYTES_2,
+    FDCAN_DLC_BYTES_3,
+    FDCAN_DLC_BYTES_4,
+    FDCAN_DLC_BYTES_5,
+    FDCAN_DLC_BYTES_6,
+    FDCAN_DLC_BYTES_7,
+    FDCAN_DLC_BYTES_8,
+    // 9-12
+    FDCAN_DLC_BYTES_12,
+    FDCAN_DLC_BYTES_12,
+    FDCAN_DLC_BYTES_12,
+    FDCAN_DLC_BYTES_12,
+    // 13-16
+    FDCAN_DLC_BYTES_16,
+    FDCAN_DLC_BYTES_16,
+    FDCAN_DLC_BYTES_16,
+    FDCAN_DLC_BYTES_16,
+    // 17-20
+    FDCAN_DLC_BYTES_20,
+    FDCAN_DLC_BYTES_20,
+    FDCAN_DLC_BYTES_20,
+    FDCAN_DLC_BYTES_20,
+    // 20-24
+    FDCAN_DLC_BYTES_24,
+    FDCAN_DLC_BYTES_24,
+    FDCAN_DLC_BYTES_24,
+    FDCAN_DLC_BYTES_24,
+    // 24-32
+    FDCAN_DLC_BYTES_32,
+    FDCAN_DLC_BYTES_32,
+    FDCAN_DLC_BYTES_32,
+    FDCAN_DLC_BYTES_32,
+    FDCAN_DLC_BYTES_32,
+    FDCAN_DLC_BYTES_32,
+    FDCAN_DLC_BYTES_32,
+    FDCAN_DLC_BYTES_32,
+    // 33-48
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    FDCAN_DLC_BYTES_48,
+    // 49-64
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
+    FDCAN_DLC_BYTES_64,
 };
 
 static inline uint8_t CanardDLCToFDCANLength(uint32_t fdcan_dlc) {
@@ -126,11 +179,11 @@ void process_tx_queue() {
     }
 
     // Look at top of the TX queue of individual CAN frames
-    while (queue.size != 0)
-    {
+    while (queue.size != 0) {
         const CanardTxQueueItem* ti = canardTxPeek(&queue);
 
-        if ((0U == ti->tx_deadline_usec) || (ti->tx_deadline_usec > micros()))  // Check the deadline.
+        if ((0U == ti->tx_deadline_usec) ||
+            (ti->tx_deadline_usec > micros()))  // Check the deadline.
         {
             /* Instantiate a frame for the media layer */
 #ifdef STM32_G
@@ -139,7 +192,8 @@ void process_tx_queue() {
             TxHeader.Identifier = ti->frame.extended_can_id;
             TxHeader.IdType = FDCAN_EXTENDED_ID;
             TxHeader.TxFrameType = FDCAN_DATA_FRAME;
-            TxHeader.DataLength = CanardFDCANLengthToDLC[ti->frame.payload_size];
+            TxHeader.DataLength =
+                CanardFDCANLengthToDLC[ti->frame.payload_size];
             TxHeader.ErrorStateIndicator = FDCAN_ESI_PASSIVE;
             TxHeader.BitRateSwitch = FDCAN_BRS_ON;
             TxHeader.FDFormat = FDCAN_FD_CAN;
@@ -148,10 +202,12 @@ void process_tx_queue() {
 
             uint8_t TxData[64];
 
-            memcpy( TxData, (uint8_t *)ti->frame.payload, ti->frame.payload_size );
+            memcpy(TxData, (uint8_t*)ti->frame.payload, ti->frame.payload_size);
 
-            // if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1))  // https://forum.opencyphal.org/t/uavcan-can-tx-buffer-management-in-can-fd-controllers/1215
-            if ( HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &TxHeader, TxData) != HAL_OK) {
+            // if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1))  //
+            // https://forum.opencyphal.org/t/uavcan-can-tx-buffer-management-in-can-fd-controllers/1215
+            if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &TxHeader, TxData) !=
+                HAL_OK) {
                 break;
             }
 #else
@@ -164,35 +220,35 @@ void process_tx_queue() {
 
             uint8_t TxData[8];
 
-            memcpy( TxData, (uint8_t *)ti->frame.payload, ti->frame.payload_size );
+            memcpy(TxData, (uint8_t*)ti->frame.payload, ti->frame.payload_size);
 
-            if ( HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) != HAL_OK)
-            {
+            if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) !=
+                HAL_OK) {
                 break;
             }
 #endif
         }
-        // After the frame is transmitted or if it has timed out while waiting, pop it from the queue and deallocate:
+        // After the frame is transmitted or if it has timed out while waiting,
+        // pop it from the queue and deallocate:
         canard.memory_free(&canard, canardTxPop(&queue, ti));
     }
 }
 
 void cyphal_push(
-    const CanardMicrosecond             tx_deadline_usec,
+    const CanardMicrosecond tx_deadline_usec,
     const CanardTransferMetadata* const metadata,
-    const size_t                        payload_size,
-    const void* const                   payload
+    const size_t payload_size,
+    const void* const payload
 ) {
     int32_t push_state = canardTxPush(
-            &queue,
-            &canard,
-            tx_deadline_usec,
-            metadata,
-            payload_size,
-            payload
+        &queue,
+        &canard,
+        tx_deadline_usec,
+        metadata,
+        payload_size,
+        payload
     );
-    if(push_state  < 0 )
-    {
+    if (push_state < 0) {
         Error_Handler();
     }
 }
@@ -216,14 +272,14 @@ void process_rx_frame(const CAN_RxHeaderTypeDef* RxHeader, uint8_t RxData[]) {
     CanardRxTransfer transfer = {.payload = NULL};
     CanardRxSubscription* subscription = NULL;
     const int8_t accept_result = canardRxAccept(
-        (CanardInstance *const)&canard,
+        (CanardInstance* const)&canard,
         micros(),
         &rxf,
         0,
         &transfer,
         &subscription
     );
-    if(accept_result != 1) {
+    if (accept_result != 1) {
         goto exit;
     }
     if (subscription == NULL) {

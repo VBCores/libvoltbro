@@ -24,7 +24,7 @@ void blink_notify(int blinks) {
 }
 
 O1HeapInstance* heapInit(void** memoryArena, size_t heapSize) {
-    void *mem = malloc(heapSize);
+    void* mem = malloc(heapSize);
     if (mem == NULL) {
         return NULL;
     }
@@ -34,5 +34,5 @@ O1HeapInstance* heapInit(void** memoryArena, size_t heapSize) {
 }
 
 uint32_t dac_value(double dac_voltage) {
-    return floor(4095 * dac_voltage / 3.3 );
+    return floor(4095 * dac_voltage / 3.3);
 }
