@@ -45,7 +45,7 @@ uint32_t micros(void);
 
 void init_cyphal(CanardNodeID node_id);
 
-void send_heartbeat();
+void send_heartbeat(uint8_t health, uint8_t mode);
 
 void cyphal_push(
     const CanardMicrosecond timeout,

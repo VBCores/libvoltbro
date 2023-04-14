@@ -41,6 +41,7 @@ extern "C" {
 #define TESTS
 
 typedef struct {
+    bool is_on;
     bool predict_change;
     uint8_t State;  // Device state such as FOC, Calibration etc*/
     float encoder_filtering;

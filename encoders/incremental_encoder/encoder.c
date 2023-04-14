@@ -76,7 +76,8 @@ IncrementalEncoder* make_incr_encoder(
     pin pin_2,
     pin pin_3
 ) {
-    IncrementalEncoder* encoder = malloc(sizeof(IncrementalEncoder));
+    IncrementalEncoder* encoder;
+    CRITICAL_SECTION({ encoder = malloc(sizeof(IncrementalEncoder)); })
     if (encoder == NULL) {
         return NULL;
     }

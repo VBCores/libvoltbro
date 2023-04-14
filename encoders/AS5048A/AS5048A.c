@@ -45,7 +45,8 @@ AS5048AConfig* make_AS5048A_config(
     GPIO_TypeDef* SPI_SS_GPIOx,
     pin SPI_SS
 ) {
-    AS5048AConfig* config = malloc(sizeof(AS5048AConfig));
+    AS5048AConfig* config;
+    CRITICAL_SECTION({ config = malloc(sizeof(AS5048AConfig)); })
     if (config == NULL) {
         return NULL;
     }

@@ -11,7 +11,8 @@
 #include "pid.h"
 
 PIDConfig* make_pid_config(double p_gain, double i_gain, double d_gain) {
-    PIDConfig* config = malloc(sizeof(PIDConfig));
+    PIDConfig* config;
+    CRITICAL_SECTION({ config = malloc(sizeof(PIDConfig)); })
     if (config == NULL) {
         return NULL;
     }

@@ -14,6 +14,8 @@
 #ifdef HAL_CAN_MODULE_ENABLED
 #include "cyphal.h"
 
+#include "utils.h"
+
 #ifndef CYPHAL_DF
 uint32_t TxMailbox;
 #endif
@@ -31,12 +33,24 @@ uint32_t micros(void) {
 
 void* memAllocate(CanardInstance* const ins, const size_t amount) {
     (void)ins;
-    return o1heapAllocate(o1heap, amount);
+    void* mem;
+
+    CRITICAL_SECTION({
+        // mem = o1heapAllocate(o1heap, amount);
+        mem = malloc(amount);
+    })
+    if (mem == NULL) {
+        Error_Handler();
+    }
+    return mem;
 }
 
 void memFree(CanardInstance* const ins, void* const pointer) {
     (void)ins;
-    o1heapFree(o1heap, pointer);
+    CRITICAL_SECTION({
+        // o1heapFree(o1heap, pointer);
+        free(pointer);
+    })
 }
 
 void init_cyphal(CanardNodeID NodeId) {
@@ -46,12 +60,12 @@ void init_cyphal(CanardNodeID NodeId) {
     queue = canardTxInit(200, CANARD_MTU_CAN_CLASSIC);
 }
 
-void send_heartbeat() {
+void send_heartbeat(uint8_t health, uint8_t mode) {
     uint32_t tick = HAL_GetTick();
     uavcan_node_Heartbeat_1_0 heartbeat = {
         .uptime = (uint32_t)(tick / 1000),
-        .health = {uavcan_node_Health_1_0_NOMINAL},
-        .mode = {uavcan_node_Mode_1_0_OPERATIONAL},
+        .health = {health},
+        .mode = {mode},
         .vendor_specific_status_code = canard.node_id,
     };
     // Serialize the heartbeat message
@@ -174,10 +188,6 @@ static inline uint8_t CanardDLCToFDCANLength(uint32_t fdcan_dlc) {
 #endif
 
 void process_tx_queue() {
-    if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
-        return;
-    }
-
     // Look at top of the TX queue of individual CAN frames
     while (queue.size != 0) {
         const CanardTxQueueItem* ti = canardTxPeek(&queue);
@@ -221,6 +231,13 @@ void process_tx_queue() {
             uint8_t TxData[8];
 
             memcpy(TxData, (uint8_t*)ti->frame.payload, ti->frame.payload_size);
+
+            // all mailboxes should be free -
+            // https://forum.opencyphal.org/t/uavcan-v0-found-data-transfer-reversal/1476/6
+            // "Reduce the number of enqueued frames to 1" - fix to inner
+            // priority inversion
+            while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) != 3) {
+            }  // wait for message to transmit
 
             if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) !=
                 HAL_OK) {

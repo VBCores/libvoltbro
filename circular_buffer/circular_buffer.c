@@ -7,9 +7,13 @@
 
 #include "circular_buffer.h"
 
+#include "utils.h"
+
 CircularBuffer* make_buffer(size_t capacity) {
-    CircularBuffer* buffer =
-        malloc(sizeof(CircularBuffer) + sizeof(int32_t) * capacity);
+    CircularBuffer* buffer;
+    CRITICAL_SECTION({
+        buffer = malloc(sizeof(CircularBuffer) + sizeof(int32_t) * capacity);
+    })
     if (buffer == NULL) {
         return NULL;
     }

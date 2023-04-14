@@ -28,7 +28,8 @@ DriverConfig* create_driver_config(
     dac_channel dac_channel_,
     DAC_HandleTypeDef* dac
 ) {
-    DriverConfig* config = malloc(sizeof(DriverConfig));
+    DriverConfig* config;
+    CRITICAL_SECTION({ config = malloc(sizeof(DriverConfig)); })
     if (config == NULL) {
         return NULL;
     }

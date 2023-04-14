@@ -26,6 +26,11 @@ extern pin NotifyLED_PIN;
 
 #define force_inline __attribute__((always_inline)) static inline
 
+#define CRITICAL_SECTION(code_blk)          \
+    uint32_t primask_bit = __get_PRIMASK(); \
+    __disable_irq();                        \
+    code_blk __set_PRIMASK(primask_bit);
+
 #ifdef __cplusplus
 extern "C" {
 #endif

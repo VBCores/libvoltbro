@@ -16,13 +16,11 @@
 
 // Shortcuts, always inlined
 
-#define absolute_inline __attribute__((always_inline)) static inline
-
 template <typename ObjType> using cyphal_serializer = int8_t (*)(const ObjType *const, uint8_t *const, size_t *const);
 template <typename ObjType> using cyphal_deserializer = int8_t (*)(ObjType *const, const uint8_t*, size_t *const);
 
 template <typename ObjType>
-absolute_inline void send_cyphal(
+force_inline void send_cyphal(
     ObjType *obj,
     uint8_t buf[],
     CanardPortID port,
@@ -52,9 +50,12 @@ absolute_inline void send_cyphal(
     );
     (*transfer_id)++;
 }
+#define SEND_TRANSFER(TYPE, obj, buf, port, transfer_id, priority, transfer_kind, dest_id) \
+send_cyphal<TYPE>(obj, buf, port, transfer_id, priority, transfer_kind, dest_id, TYPE##_SERIALIZATION_BUFFER_SIZE_BYTES_, TYPE##_serialize_)
+
 
 template <typename ObjType>
-absolute_inline void send_cyphal_default_msg(
+force_inline void send_cyphal_default_msg(
     ObjType *obj,
     uint8_t buf[],
     CanardPortID port,
@@ -74,9 +75,11 @@ absolute_inline void send_cyphal_default_msg(
             serializer
     );
 }
+#define SEND_MSG(TYPE, obj, buf, port, transfer_id) \
+send_cyphal_default_msg<TYPE>(obj, buf, port, transfer_id, TYPE##_SERIALIZATION_BUFFER_SIZE_BYTES_, TYPE##_serialize_)
 
 template <typename ObjType>
-absolute_inline void send_cyphal_default_msg_to(
+force_inline void send_cyphal_default_msg_to(
     ObjType *obj,
     uint8_t buf[],
     CanardPortID port,
@@ -86,20 +89,22 @@ absolute_inline void send_cyphal_default_msg_to(
     cyphal_serializer<ObjType> serializer
 ) {
     send_cyphal<ObjType>(
-            obj,
-            buf,
-            port,
-            transfer_id,
-            CanardPriorityNominal,
-            CanardTransferKindMessage,
-            to_node_id,
-            buffer_size,
-            serializer
+        obj,
+        buf,
+        port,
+        transfer_id,
+        CanardPriorityNominal,
+        CanardTransferKindMessage,
+        to_node_id,
+        buffer_size,
+        serializer
     );
 }
+#define SEND_MSG_TO(TYPE, obj, buf, port, transfer_id, dest_id) \
+send_cyphal_default_msg_to<TYPE>(obj, buf, port, transfer_id, dest_id, TYPE##_SERIALIZATION_BUFFER_SIZE_BYTES_, TYPE##_serialize_)
 
 template <typename ObjType>
-absolute_inline void send_cyphal_response(
+force_inline void send_cyphal_response(
     ObjType *obj,
     uint8_t buf[],
     CanardRxTransfer *transfer,
@@ -125,9 +130,12 @@ absolute_inline void send_cyphal_response(
             buf
     );
 }
+#define SEND_RESPONSE(TYPE, obj, buf, transfer, port) \
+send_cyphal_response<TYPE>(obj, buf, transfer, port, TYPE##_SERIALIZATION_BUFFER_SIZE_BYTES_, TYPE##_serialize_)
+
 
 template <typename ObjType>
-absolute_inline void cyphal_deserialize_transfer(
+force_inline void cyphal_deserialize_transfer(
     ObjType *obj,
     CanardRxTransfer* transfer,
     size_t buf_size,
@@ -138,6 +146,8 @@ absolute_inline void cyphal_deserialize_transfer(
         Error_Handler();
     }
 }
+#define DESERIALIZE_TRANSFER(TYPE, obj, transfer) \
+cyphal_deserialize_transfer<TYPE>(obj, transfer, TYPE##_EXTENT_BYTES_, TYPE##_deserialize_)
 
 #endif
 #endif /* INC_CYPHAL_HPP_ */
