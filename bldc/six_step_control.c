@@ -26,6 +26,9 @@ static float elec_theta_obs;
 force_inline void
 observer(DriverState* driver, const IncrementalEncoder* encoder, float dt) {
     elec_theta_obs = driver->ElecTheta + elec_speed * dt * encoder->direction;
+    if (elec_theta_obs > pi2) {
+        elec_theta_obs -= pi2;
+    }
 }
 
 // very stupid
@@ -50,6 +53,9 @@ void six_step_control(
     uint16_t* DQB,
     uint16_t* DQC
 ) {
+    if (!driver->is_on) {
+        return;
+    }
     const IncrementalEncoder* inc_encoder = (IncrementalEncoder*)encoder;
     const EncoderStep step = inc_encoder->step;
 
@@ -115,7 +121,10 @@ void six_step_control(
 
             // PID
             speed_error = driver->vel_SetP - driver->ShaftVelocity;
-            regulation(pid, speed_error, passed_time_abs);
+            double regl = regulation(pid, speed_error, passed_time_abs);
+            if (fabs(regl) > driver->vel_SetP) {
+                regl = copysign(driver->vel_SetP, regl);  // TODO: use??
+            }
 #ifndef DEBUG
             double pid_signal;
 #endif
@@ -151,7 +160,8 @@ void six_step_control(
         }
     } else {
         if (last_step != (EncoderStep)-1) {
-            elec_speed = step_size / passed_time_incr;
+            //elec_speed = step_size / passed_time_incr;
+            elec_speed = (driver->vel_SetP / driver->gear_ratio) / driver->ppairs;
         }
         driver->ElecTheta = (float)(step * step_size);
         last_step = step;
@@ -160,7 +170,7 @@ void six_step_control(
 
     // DRIVER CONTROL
     // float target_angle = driver->ElecTheta + pi2 * (90.0f / 360.0f);
-    float target_angle = elec_theta_obs + pi2 * (90.0f / 360.0f);
+    float target_angle = elec_theta_obs;// + pi2 * (90.0f / 360.0f);
 
     float sf = arm_sin_f32(target_angle);
     float cf = arm_cos_f32(target_angle);
@@ -169,7 +179,7 @@ void six_step_control(
     float v_b = 0;
     float v_c = 0;
 
-    abc(sf, cf, Vd, 0, &v_a, &v_b, &v_c);
+    abc(sf, cf, 0, Vd, &v_a, &v_b, &v_c);
 
     *DQA = 1000 + (int16_t)(1000.0f * v_a);
     *DQB = 1000 + (int16_t)(1000.0f * v_b);

@@ -34,7 +34,7 @@ void make_pid_config_reserved(
         .d_gain = d_gain,
         .integral_error = 0,
         .prev_error = 0,
-        .integral_error_lim = 1000.0,
+        .integral_error_lim = 0.1,
         .signal = 0.1,  // TODO: fix! a hack
     };
 
