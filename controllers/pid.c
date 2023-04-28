@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "pid.h"
 
@@ -42,7 +43,12 @@ void make_pid_config_reserved(
 }
 
 double regulation(PIDConfig* config, double error, double dt) {
-    double error_diff = error - config->prev_error;
+    if (fabs(error) <= 0.05) {
+        config->signal = 0;
+        return 0;
+    }
+
+    double error_diff = fabs(error) - fabs(config->prev_error);
     config->prev_error = error;
 
     double integral_error = config->integral_error + error * dt;
@@ -54,6 +60,7 @@ double regulation(PIDConfig* config, double error, double dt) {
     config->signal =
         config->p_gain * (error + config->i_gain * config->integral_error +
                           config->d_gain * error_diff / dt);
+
     return config->signal;
 }
 

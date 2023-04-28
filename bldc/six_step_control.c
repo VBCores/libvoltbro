@@ -20,7 +20,7 @@ static uint32_t ticks_since_sample_abs = 0;
 
 static EncoderStep last_step = -1;
 static uint32_t ticks_since_change_incr = 0;
-static float elec_speed = 0;
+static float elec_speed = 0.5f;
 static float elec_theta_obs;
 
 force_inline void
@@ -33,7 +33,7 @@ observer(DriverState* driver, const IncrementalEncoder* encoder, float dt) {
 
 // very stupid
 force_inline float speed_to_voltage(float speed) {
-    return (speed + 1) / 16.5f;
+    return (speed + copysignf(1.0f, speed)) / 16.5f;
 }
 
 #ifdef DEBUG
@@ -128,9 +128,10 @@ void six_step_control(
 #ifndef DEBUG
             double pid_signal;
 #endif
-            pid_signal = speed_to_voltage(pid->signal);
-            // 0.5v/s max
-            const float max_v_per_sample = 0.5f * driver->sampling_interval;
+            //pid_signal = speed_to_voltage(pid->signal);
+            pid_signal = pid->signal / 20; // amplifier
+            // 2v/s max
+            const float max_v_per_sample = 2.0f * driver->sampling_interval;
             if (fabs(pid_signal) > max_v_per_sample) {
                 pid_signal = copysign(max_v_per_sample, pid_signal);
             }

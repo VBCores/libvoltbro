@@ -279,6 +279,9 @@ void motor_control(
     } else if (driver->State == SIX_STEP_CONTROL) {
         six_step_control(driver, encoder, inverter, pid, &DQA, &DQB, &DQC);
     }
+    else if (driver->State == CLBR) {
+
+    }
 
     __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, DQA);
     __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, DQB);
