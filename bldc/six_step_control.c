@@ -5,6 +5,7 @@
  *      Author: Igor Beschastnov,
  */
 #include "bldc.h"
+#include "six_step_control.h"
 
 #include "arm_math.h"
 
@@ -13,22 +14,33 @@
 #include "math/transform.h"
 
 extern AS5048AConfig as5048a_config;
-
 extern void Error_Handler();
 
-static uint32_t ticks_since_sample_abs = 0;
+const float step_size = pi2 / 6;
 
-static EncoderStep last_step = -1;
-static uint32_t ticks_since_change_incr = 0;
-static float elec_speed = 0.5f;
-static float elec_theta_obs;
+#ifdef REPORT_STATE
+SixStepState SSState;
+#endif
 
-force_inline void
-observer(DriverState* driver, const IncrementalEncoder* encoder, float dt) {
-    elec_theta_obs = driver->ElecTheta + elec_speed * dt * encoder->direction;
-    if (elec_theta_obs > pi2) {
-        elec_theta_obs -= pi2;
+#ifdef DEBUG
+static float elec_speed;
+static float elec_predicted;
+#endif
+force_inline float observer(DriverState* driver, const IncrementalEncoder* encoder, float dt) {
+#ifndef DEBUG
+    float elec_speed;
+#endif
+    elec_speed = driver->vel_SetP * driver->gear_ratio * driver->ppairs;
+    float value = driver->ElecTheta + elec_speed * dt;
+    if (value > pi2) {
+        value -= pi2;
     }
+#ifdef REPORT_STATE
+    SSState.elec_speed = elec_speed;
+    SSState.elec_predicted = value;
+#endif
+
+    return value;
 }
 
 // very stupid
@@ -56,7 +68,10 @@ void six_step_control(
     if (!driver->is_on) {
         return;
     }
-    const IncrementalEncoder* inc_encoder = (IncrementalEncoder*)encoder;
+    static EncoderStep last_step = -1;
+
+    IncrementalEncoder* inc_encoder = (IncrementalEncoder*)encoder;
+    calc_encoder_step(inc_encoder);
     const EncoderStep step = inc_encoder->step;
 
     // Guards
@@ -69,9 +84,10 @@ void six_step_control(
 #endif
     // SPEED AND SHAFT ANGLE
 #ifdef ABS_ANGLES
-        as5048a_config.common.value =
-        as5048a_config.common.get_angle((GEncoder*)&as5048a_config);
+    as5048a_config.common.value = as5048a_config.common.get_angle((GEncoder*)&as5048a_config);
     const uint16_t abs_value = as5048a_config.common.value;
+
+    static uint32_t ticks_since_sample_abs = 0;
     float passed_time_abs = (float)ticks_since_sample_abs * driver->T;
     if (passed_time_abs > driver->sampling_interval) {
         ticks_since_sample_abs = 0;
@@ -121,15 +137,13 @@ void six_step_control(
 
             // PID
             speed_error = driver->vel_SetP - driver->ShaftVelocity;
-            double regl = regulation(pid, speed_error, passed_time_abs);
-            if (fabs(regl) > driver->vel_SetP) {
-                regl = copysign(driver->vel_SetP, regl);  // TODO: use??
-            }
+            regulation(pid, speed_error, passed_time_abs);
 #ifndef DEBUG
             double pid_signal;
 #endif
             //pid_signal = speed_to_voltage(pid->signal);
             pid_signal = pid->signal / 20; // amplifier
+
             // 2v/s max
             const float max_v_per_sample = 2.0f * driver->sampling_interval;
             if (fabs(pid_signal) > max_v_per_sample) {
@@ -138,12 +152,13 @@ void six_step_control(
 #ifndef DEBUG
             static float Vd = 0
 #endif
-                Vd -= pid_signal;
-            /**/
-            // Vd = -0.5f;
-            if (fabsf(Vd) > 1.0f) {
-                Vd = copysign(1.0f, Vd);
+            Vd -= pid_signal;
+            if (fabsf(Vd) > driver->max_V) {
+                Vd = copysign(driver->max_V, Vd);
             }
+#ifdef REPORT_STATE
+            SSState.Vd = Vd;
+#endif
         }
     } else {
         ticks_since_sample_abs += 1;
@@ -151,30 +166,36 @@ void six_step_control(
 #endif
 
     // ELECTRIC ANGLE
-    const float step_size = pi2 / 6;
-
+    static uint32_t ticks_since_change_incr = 0;
     ticks_since_change_incr += 1;
     float passed_time_incr = (float)ticks_since_change_incr * driver->T;
+    //const double time_for_step = (pi2 / driver->vel_SetP) / (double)driver->gear_ratio / (double)driver->ppairs / 6.0;
+#ifndef DEBUG
+    float elec_predicted;
+#endif
     if (step == last_step) {
         if (driver->predict_change) {
-            observer(driver, inc_encoder, passed_time_incr);
+            elec_predicted = observer(driver, inc_encoder, passed_time_incr);
         }
     } else {
-        if (last_step != (EncoderStep)-1) {
-            //elec_speed = step_size / passed_time_incr;
-            elec_speed = (driver->vel_SetP / driver->gear_ratio) / driver->ppairs;
-        }
         driver->ElecTheta = (float)(step * step_size);
+        elec_predicted = driver->ElecTheta;
+
         last_step = step;
         ticks_since_change_incr = 0;
     }
 
     // DRIVER CONTROL
-    // float target_angle = driver->ElecTheta + pi2 * (90.0f / 360.0f);
-    float target_angle = elec_theta_obs;// + pi2 * (90.0f / 360.0f);
+    float elec_angle;
+    if (driver->predict_change) {
+        elec_angle = elec_predicted;
+    }
+    else {
+        elec_angle = driver->ElecTheta;
+    }
 
-    float sf = arm_sin_f32(target_angle);
-    float cf = arm_cos_f32(target_angle);
+    float sf = arm_sin_f32(elec_angle);
+    float cf = arm_cos_f32(elec_angle);
 
     float v_a = 0;
     float v_b = 0;

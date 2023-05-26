@@ -95,6 +95,13 @@ IncrementalEncoder* make_incr_encoder(
     return encoder;
 }
 
+void calc_encoder_step(IncrementalEncoder* encoder) {
+    encoder->state_1 = get_pin_state(encoder->pin_gpiox, encoder->pin_1);
+    encoder->state_2 = get_pin_state(encoder->pin_gpiox, encoder->pin_2);
+    encoder->state_3 = get_pin_state(encoder->pin_gpiox, encoder->pin_3);
+    encoder->step = get_encoder_step(encoder);
+}
+
 void handle_encoder_channel(IncrementalEncoder* encoder, pin channel) {
     uint8_t activated_pin;
     // bool state = get_pin_state(encoder->pin_gpiox, channel);

@@ -71,6 +71,7 @@ void make_incr_encoder_reserved(
     pin pin_3
 );
 void handle_encoder_channel(IncrementalEncoder* encoder, pin channel);
+void calc_encoder_step(IncrementalEncoder* encoder);
 
 #ifdef __cplusplus
 }

@@ -17,7 +17,6 @@
 
 #include <libcanard/canard.h>
 #include <uavcan/node/Heartbeat_1_0.h>
-#include <voltbro/echo/echo_service_1_0.h>
 
 #include "o1heap/o1heap.h"
 
@@ -64,6 +63,14 @@ void process_rx_frame(
 #else
 void process_rx_frame(const CAN_RxHeaderTypeDef* rx_header, uint8_t rx_data[]);
 #endif
+
+void cyphal_subscribe(
+    CanardPortID port_id,
+    size_t extent,
+    CanardRxSubscription* const subscription,
+    void(*callback)(CanardRxTransfer*)
+);
+
 
 #ifdef __cplusplus
 }

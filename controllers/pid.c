@@ -52,8 +52,8 @@ double regulation(PIDConfig* config, double error, double dt) {
     config->prev_error = error;
 
     double integral_error = config->integral_error + error * dt;
-    if (integral_error > config->integral_error_lim) {
-        integral_error = config->integral_error_lim;
+    if (fabs(integral_error) > config->integral_error_lim) {
+        integral_error = copysign(config->integral_error_lim, integral_error);
     }
     config->integral_error = integral_error;
 

@@ -24,9 +24,9 @@ extern "C" {
 #endif
 
 typedef struct PIDConfig {
-    const double p_gain;
-    const double i_gain;
-    const double d_gain;
+    double p_gain;
+    double i_gain;
+    double d_gain;
     double integral_error;
     double prev_error;
     double integral_error_lim;

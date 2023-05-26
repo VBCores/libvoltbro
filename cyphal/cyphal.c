@@ -313,4 +313,23 @@ exit:
     }
 }
 
+void cyphal_subscribe(
+    CanardPortID port_id,
+    size_t extent,
+    CanardRxSubscription* const subscription,
+    void(*callback)(CanardRxTransfer*)
+) {
+    if (canardRxSubscribe(
+        (CanardInstance* const)&canard,
+        CanardTransferKindRequest,
+        port_id,
+        extent,
+        CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
+        subscription
+    ) != 1) {
+        Error_Handler();
+    }
+    subscription->user_reference = (void*)callback;
+}
+
 #endif

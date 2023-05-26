@@ -67,6 +67,7 @@ typedef struct {
     const uint32_t ppairs;
     const float torque_const;
     float max_torque;
+    float max_V;
 } DriverState;
 
 typedef struct {
