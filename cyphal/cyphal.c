@@ -5,13 +5,13 @@
  *      Author: Igor Beschastnov
  */
 
-#ifdef STM32_G
+#if defined(STM32G474xx) || defined(STM32_G)
 #include "stm32g4xx_hal.h"
 #else
 #include "stm32f4xx_hal.h"
 #endif
 
-#ifdef HAL_CAN_MODULE_ENABLED
+#if defined(HAL_CAN_MODULE_ENABLED) || defined(HAL_FDCAN_MODULE_ENABLED)
 #include "cyphal.h"
 
 #include "utils.h"
@@ -98,7 +98,7 @@ void send_heartbeat(uint8_t health, uint8_t mode) {
     heartbeatTransferId++;
 }
 
-#ifdef STM32_G
+#if defined(STM32G474xx) || defined(STM32_G)
 const uint32_t CanardFDCANLengthToDLC[65] = {
     // 0-8
     FDCAN_DLC_BYTES_0,
@@ -196,7 +196,7 @@ void process_tx_queue() {
             (ti->tx_deadline_usec > micros()))  // Check the deadline.
         {
             /* Instantiate a frame for the media layer */
-#ifdef STM32_G
+#if defined(STM32G474xx) || defined(STM32_G)
             FDCAN_TxHeaderTypeDef TxHeader;
 
             TxHeader.Identifier = ti->frame.extended_can_id;
@@ -214,8 +214,13 @@ void process_tx_queue() {
 
             memcpy(TxData, (uint8_t*)ti->frame.payload, ti->frame.payload_size);
 
-            // if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1))  //
-            // https://forum.opencyphal.org/t/uavcan-can-tx-buffer-management-in-can-fd-controllers/1215
+            // all mailboxes should be free -
+            // https://forum.opencyphal.org/t/uavcan-v0-found-data-transfer-reversal/1476/6
+            // "Reduce the number of enqueued frames to 1" - fix to inner
+            // priority inversion
+            while (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1) != 3) {
+            }  // wait for message to transmit
+
             if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &TxHeader, TxData) !=
                 HAL_OK) {
                 break;
@@ -270,14 +275,14 @@ void cyphal_push(
     }
 }
 
-#ifdef STM32_G
+#if defined(STM32G474xx) || defined(STM32_G)
 void process_rx_frame(const FDCAN_RxHeaderTypeDef* RxHeader, uint8_t RxData[]) {
 #else
 void process_rx_frame(const CAN_RxHeaderTypeDef* RxHeader, uint8_t RxData[]) {
 #endif
     CanardFrame rxf;
 
-#ifdef STM32_G
+#if defined(STM32G474xx) || defined(STM32_G)
     rxf.extended_can_id = RxHeader->Identifier;
     rxf.payload_size = CanardDLCToFDCANLength(RxHeader->DataLength);
 #else

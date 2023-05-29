@@ -39,7 +39,9 @@ void make_incr_encoder_reserved(
     IncrementalEncoder* dest,
     uint16_t CPR,
     bool inverted,
-    GPIO_TypeDef* pin_gpiox,
+    GPIO_TypeDef* pin_1_gpiox,
+    GPIO_TypeDef* pin_2_gpiox,
+    GPIO_TypeDef* pin_3_gpiox,
     pin pin_1,
     pin pin_2,
     pin pin_3
@@ -52,10 +54,12 @@ void make_incr_encoder_reserved(
              .last_error = false,
              .elec_offset = 0,
              .get_angle = &nop},
-        .state_1 = get_pin_state(pin_gpiox, pin_1),
-        .state_2 = get_pin_state(pin_gpiox, pin_2),
-        .state_3 = get_pin_state(pin_gpiox, pin_3),
-        .pin_gpiox = pin_gpiox,
+        .state_1 = get_pin_state(pin_1_gpiox, pin_1),
+        .state_2 = get_pin_state(pin_2_gpiox, pin_2),
+        .state_3 = get_pin_state(pin_3_gpiox, pin_3),
+        .pin_1_gpiox = pin_1_gpiox,
+        .pin_2_gpiox = pin_2_gpiox,
+        .pin_3_gpiox = pin_3_gpiox,
         .pin_1 = pin_1,
         .pin_2 = pin_2,
         .pin_3 = pin_3,
@@ -71,7 +75,9 @@ void make_incr_encoder_reserved(
 IncrementalEncoder* make_incr_encoder(
     uint16_t CPR,
     bool inverted,
-    GPIO_TypeDef* pin_gpiox,
+    GPIO_TypeDef* pin_1_gpiox,
+    GPIO_TypeDef* pin_2_gpiox,
+    GPIO_TypeDef* pin_3_gpiox,
     pin pin_1,
     pin pin_2,
     pin pin_3
@@ -86,7 +92,9 @@ IncrementalEncoder* make_incr_encoder(
         encoder,
         CPR,
         inverted,
-        pin_gpiox,
+        pin_1_gpiox,
+        pin_2_gpiox,
+        pin_3_gpiox,
         pin_1,
         pin_2,
         pin_3
@@ -96,9 +104,9 @@ IncrementalEncoder* make_incr_encoder(
 }
 
 void calc_encoder_step(IncrementalEncoder* encoder) {
-    encoder->state_1 = get_pin_state(encoder->pin_gpiox, encoder->pin_1);
-    encoder->state_2 = get_pin_state(encoder->pin_gpiox, encoder->pin_2);
-    encoder->state_3 = get_pin_state(encoder->pin_gpiox, encoder->pin_3);
+    encoder->state_1 = get_pin_state(encoder->pin_1_gpiox, encoder->pin_1);
+    encoder->state_2 = get_pin_state(encoder->pin_2_gpiox, encoder->pin_2);
+    encoder->state_3 = get_pin_state(encoder->pin_3_gpiox, encoder->pin_3);
     encoder->step = get_encoder_step(encoder);
 }
 
@@ -119,9 +127,9 @@ void handle_encoder_channel(IncrementalEncoder* encoder, pin channel) {
         return;
     }
     //*(&encoder->state_1 + activated_pin) = state;  // TODO: test
-    encoder->state_1 = get_pin_state(encoder->pin_gpiox, encoder->pin_1);
-    encoder->state_2 = get_pin_state(encoder->pin_gpiox, encoder->pin_2);
-    encoder->state_3 = get_pin_state(encoder->pin_gpiox, encoder->pin_3);
+    encoder->state_1 = get_pin_state(encoder->pin_1_gpiox, encoder->pin_1);
+    encoder->state_2 = get_pin_state(encoder->pin_2_gpiox, encoder->pin_2);
+    encoder->state_3 = get_pin_state(encoder->pin_3_gpiox, encoder->pin_3);
 
     int32_t value = (int32_t)encoder->common.value;
     if ((activated_pin == encoder->last_activated + 1) ||

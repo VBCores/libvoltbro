@@ -41,6 +41,15 @@ void six_step_control(
     uint16_t* DQB,
     uint16_t* DQC
 );
+void observer_control(
+    DriverState* driver,
+    GEncoder* encoder,
+    InverterState* inverter,
+    PIDConfig* pid,
+    uint16_t* DQA,
+    uint16_t* DQB,
+    uint16_t* DQC
+);
 
 void ProcessADC(InverterState* inverter, const uint32_t ADC_buf[]) {
     // current sensors zero current output voltage is 3.3V/2 = 1.65V
@@ -258,15 +267,15 @@ void motor_control(
         abc(sf, cf, const_Vd, const_Vq, &DVA, &DVB, &DVC
         );  // inverse dq0 transform on voltages
 
-        DQA = 1000 + (int16_t)(1000.0f * DVA);
-        DQB = 1000 + (int16_t)(1000.0f * DVB);
-        DQC = 1000 + (int16_t)(1000.0f * DVC);
+        DQA = 1000 + (int16_t) (1000.0f * DVA);
+        DQB = 1000 + (int16_t) (1000.0f * DVB);
+        DQC = 1000 + (int16_t) (1000.0f * DVC);
     } else if (driver->State == ROTATE) {
         sf = arm_sin_f32(calib_elec_angle);
         cf = arm_cos_f32(calib_elec_angle);
-        driver->ElecTheta = (float)( ((IncrementalEncoder*)encoder)->step * pi2 / 6);
+        driver->ElecTheta = (float) (((IncrementalEncoder *) encoder)->step * pi2 / 6);
 
-        const float const_Vd = -0.2f;
+        const float const_Vd = -0.3f;
         const float const_Vq = 0.0f;
 
         float DVA, DVB, DVC;
@@ -274,16 +283,21 @@ void motor_control(
         abc(sf, cf, const_Vd, const_Vq, &DVA, &DVB, &DVC
         );  // inverse dq0 transform on voltages
 
-        DQA = 1000 + (int16_t)(1000.0f * DVA);
-        DQB = 1000 + (int16_t)(1000.0f * DVB);
-        DQC = 1000 + (int16_t)(1000.0f * DVC);
+        DQA = 1000 + (int16_t) (1000.0f * DVA);
+        DQB = 1000 + (int16_t) (1000.0f * DVB);
+        DQC = 1000 + (int16_t) (1000.0f * DVC);
     } else if (driver->State == STUPID_CONTROL) {
         stupid_control(driver, inverter, pid, &DQA, &DQB, &DQC);
+    } else if (driver->State == OBSERVER_CONTROL) {
+        observer_control(driver, encoder, inverter, pid, &DQA, &DQB, &DQC);
     } else if (driver->State == SIX_STEP_CONTROL) {
         six_step_control(driver, encoder, inverter, pid, &DQA, &DQB, &DQC);
     }
+    else if (driver->State == NO_ACTION) {
+        DQA = DQB = DQC = 0;
+    }
     else if (driver->State == CLBR) {
-
+        // TODO
     }
 
     __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, DQA);

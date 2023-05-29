@@ -9,7 +9,7 @@
 
 #ifndef INC_REGISTERS_HPP_
 #define INC_REGISTERS_HPP_
-#ifdef HAL_CAN_MODULE_ENABLED
+#if defined(HAL_CAN_MODULE_ENABLED) || defined(HAL_FDCAN_MODULE_ENABLED)
 
 #include <libcanard/canard.h>
 

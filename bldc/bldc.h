@@ -8,7 +8,7 @@
 #ifndef VBLIB_BLDC_BLDC_H_
 #define VBLIB_BLDC_BLDC_H_
 
-#ifdef STM32_G
+#if defined(STM32G474xx) || defined(STM32_G)
 #include "stm32g4xx_hal.h"
 #else
 #include "stm32f4xx_hal.h"
@@ -37,7 +37,8 @@ extern "C" {
 #define CURRENT_STEP 4
 #define STUPID_CONTROL 5
 #define SIX_STEP_CONTROL 6
-#define NO_ACTION 7
+#define OBSERVER_CONTROL 7
+#define NO_ACTION 8
 #define TESTS
 
 typedef struct {

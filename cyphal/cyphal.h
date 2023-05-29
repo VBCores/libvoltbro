@@ -7,9 +7,9 @@
 
 #ifndef INC_CYPHAL_H_
 #define INC_CYPHAL_H_
-#ifdef HAL_CAN_MODULE_ENABLED
+#if defined(HAL_CAN_MODULE_ENABLED) || defined(HAL_FDCAN_MODULE_ENABLED)
 
-#ifndef STM32_G
+#if !defined(STM32G474xx) && !defined(STM32_G)
 #include "stm32f4xx_hal.h"
 #else
 #include "stm32g4xx_hal.h"
@@ -20,7 +20,7 @@
 
 #include "o1heap/o1heap.h"
 
-#ifdef STM32_G
+#if defined(STM32G474xx) || defined(STM32_G)
 extern FDCAN_HandleTypeDef hfdcan1;
 #else
 extern CAN_HandleTypeDef hcan1;
@@ -55,7 +55,7 @@ void cyphal_push(
 
 void process_tx_queue();
 
-#ifdef STM32_G
+#if defined(STM32G474xx) || defined(STM32_G)
 void process_rx_frame(
     const FDCAN_RxHeaderTypeDef* rx_header,
     uint8_t rx_data[]

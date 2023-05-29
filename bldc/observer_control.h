@@ -12,7 +12,7 @@ typedef struct {
     float elec_speed;
     float elec_predicted;
     float Vd;
-} SixStepState;
+} ObserverState;
 
 #define REPORT_STATE
 

@@ -8,7 +8,7 @@
 #ifndef VBLIB_INCREMENTAL_ENCODER_ENCODER_H_
 #define VBLIB_INCREMENTAL_ENCODER_ENCODER_H_
 
-#ifdef STM32_G
+#if defined(STM32G474xx) || defined(STM32_G)
 #include "stm32g4xx_hal.h"
 #else
 #include "stm32f4xx_hal.h"
@@ -27,12 +27,12 @@ extern "C" {
 #endif
 
 typedef enum {
-    A = 0,
-    AB = 1,
-    B = 2,
-    BC = 3,
-    C = 4,
-    CA = 5,
+    A = 0,   // CA (B  C') B->C
+    AB = 1,  // CB (A' B)  B->A
+    B = 2,   // AB (A' C)  C->A
+    BC = 3,  // AC (B' C)  C->B
+    C = 4,   // BC (B' A)  A->B
+    CA = 5,  // CA (A  C') A->C
 } EncoderStep;
 
 typedef struct IncrementalEncoder {
@@ -46,7 +46,9 @@ typedef struct IncrementalEncoder {
     int8_t increment;
     int8_t last_activated;
     EncoderStep step;
-    const GPIO_TypeDef* pin_gpiox;
+    const GPIO_TypeDef* pin_1_gpiox;
+    const GPIO_TypeDef* pin_2_gpiox;
+    const GPIO_TypeDef* pin_3_gpiox;
     const pin pin_1;
     const pin pin_2;
     const pin pin_3;
@@ -55,7 +57,9 @@ typedef struct IncrementalEncoder {
 IncrementalEncoder* make_incr_encoder(
     uint16_t CPR,
     bool inverted,
-    GPIO_TypeDef* pin_gpiox,
+    GPIO_TypeDef* pin_1_gpiox,
+    GPIO_TypeDef* pin_2_gpiox,
+    GPIO_TypeDef* pin_3_gpiox,
     pin pin_1,
     pin pin_2,
     pin pin_3
@@ -65,7 +69,9 @@ void make_incr_encoder_reserved(
     IncrementalEncoder* dest,
     uint16_t CPR,
     bool inverted,
-    GPIO_TypeDef* pin_gpiox,
+    GPIO_TypeDef* pin_1_gpiox,
+    GPIO_TypeDef* pin_2_gpiox,
+    GPIO_TypeDef* pin_3_gpiox,
     pin pin_1,
     pin pin_2,
     pin pin_3
