@@ -103,7 +103,7 @@ void six_step_control(
             flow_direction(PHASE_B, PHASE_C, DQs, PWM);
             break;
         case AC:
-            flow_direction(PHASE_C, PHASE_B, DQs, PWM);
+            flow_direction(PHASE_C, PHASE_A, DQs, PWM);
             break;
         case BC:
             flow_direction(PHASE_B, PHASE_A, DQs, PWM);
