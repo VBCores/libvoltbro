@@ -51,7 +51,7 @@ void calculate_angles(DriverState* driver);
 void calculate_speed(DriverState* driver);
 int16_t get_control(DriverState* driver, PIDConfig* pid, double passed_time_abs, int16_t pwm);
 
-//#define USE_SPEEDS
+#define USE_SPEEDS
 #ifdef DEBUG
 int16_t PWM;
 uint32_t ticks_since_sample_abs = 0;
@@ -95,27 +95,27 @@ void six_step_control(
         ticks_since_sample_abs += 1;
     }
 #else
-    PWM = 300;
+    PWM = 150;
 #endif
     uint16_t* DQs[3] = {DQA, DQB, DQC};
     switch (step) {
-        case A:
-            flow_direction(PHASE_B, PHASE_C, DQs, PWM);
-            break;
         case AB:
-            flow_direction(PHASE_B, PHASE_A, DQs, PWM);
-            break;
-        case B:
-            flow_direction(PHASE_C, PHASE_A, DQs, PWM);
-            break;
-        case BC:
             flow_direction(PHASE_C, PHASE_B, DQs, PWM);
             break;
-        case C:
+        case AC:
             flow_direction(PHASE_A, PHASE_B, DQs, PWM);
             break;
-        case CA:
+        case BC:
             flow_direction(PHASE_A, PHASE_C, DQs, PWM);
+            break;
+        case BA:
+            flow_direction(PHASE_B, PHASE_C, DQs, PWM);
+            break;
+        case CA:
+            flow_direction(PHASE_B, PHASE_A, DQs, PWM);
+            break;
+        case CB:
+            flow_direction(PHASE_C, PHASE_A, DQs, PWM);
             break;
     }
 }
