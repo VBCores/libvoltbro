@@ -35,10 +35,8 @@ extern "C" {
 #define ROTATE 2
 #define CURRENT 3
 #define CURRENT_STEP 4
-#define STUPID_CONTROL 5
-#define SIX_STEP_CONTROL 6
-#define OBSERVER_CONTROL 7
-#define NO_ACTION 8
+#define SIX_STEP_CONTROL 5
+#define NO_ACTION 6
 #define TESTS
 
 typedef struct {
@@ -62,7 +60,7 @@ typedef struct {
     float vel_gain;
     float torq_SetP;
 
-    const float T;  // encoder value sampling period, s
+    const double T;  // encoder value sampling period, s
     // motor physical properties
     const uint32_t gear_ratio;
     const uint32_t ppairs;
@@ -78,6 +76,10 @@ typedef struct {
     float I_D;
     float I_Q;
     float busV;
+
+    float I_A_offset;
+    float I_B_offset;
+    float I_C_offset;
 } InverterState;
 
 void CalculateAnglesSimple(

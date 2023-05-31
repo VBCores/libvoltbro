@@ -58,8 +58,9 @@ double regulation(PIDConfig* config, double error, double dt) {
     config->integral_error = integral_error;
 
     config->signal =
-        config->p_gain * (error + config->i_gain * config->integral_error +
-                          config->d_gain * error_diff / dt);
+        config->p_gain * error +
+        config->i_gain * config->integral_error +
+        config->d_gain * error_diff / dt;
 
     return config->signal;
 }

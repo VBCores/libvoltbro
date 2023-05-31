@@ -24,24 +24,7 @@ int16_t lookup[LOOKUP_SIZE] = {16, 16, 16, 16, 16, 16, 16, 15, 15, 14, 14, 14, 1
 
 volatile float calib_elec_angle = 0;
 
-void stupid_control(
-    DriverState* driver,
-    InverterState* inverter,
-    PIDConfig* pid,
-    uint16_t* DQA,
-    uint16_t* DQB,
-    uint16_t* DQC
-);
 void six_step_control(
-    DriverState* driver,
-    GEncoder* encoder,
-    InverterState* inverter,
-    PIDConfig* pid,
-    uint16_t* DQA,
-    uint16_t* DQB,
-    uint16_t* DQC
-);
-void observer_control(
     DriverState* driver,
     GEncoder* encoder,
     InverterState* inverter,
@@ -52,19 +35,26 @@ void observer_control(
 );
 
 void ProcessADC(InverterState* inverter, const uint32_t ADC_buf[]) {
-    // current sensors zero current output voltage is 3.3V/2 = 1.65V
-    const float shunt_res = 0.001f;   // 0.001 mOhm shunt resistance
-    const float op_amp_gain = 50.0f;  // current sensor gain
-
-    inverter->I_A = ((3.3f * (float)ADC_buf[1] / 4096.0f) - 1.65f) /
+    const float shunt_res = 0.045f;   // 0.001 mOhm shunt resistance
+    const float op_amp_gain = 1.0f;  // current sensor gain
+    inverter->I_A =
+            (( 3.3f*(float)ADC_buf[1] / ( 16.0f*4096.0f )) - inverter->I_A_offset )
+            / ( shunt_res*op_amp_gain );
+    inverter->I_B =
+            (( 3.3f*(float)ADC_buf[2] / ( 16.0f*4096.0f )) - inverter->I_B_offset )
+            / ( shunt_res*op_amp_gain );
+    inverter->I_C =
+            (( 3.3f*(float)ADC_buf[3] / ( 16.0f*4096.0f )) - inverter->I_C_offset )
+            / ( shunt_res*op_amp_gain );
+    /*
+    inverter->I_A = ((3.3f * (float)ADC_buf[1] / 4096.0f / 16.0f) - 1.65f) /
                     (shunt_res * op_amp_gain);
-    inverter->I_B = ((3.3f * (float)ADC_buf[2] / 4096.0f) - 1.65f) /
+    inverter->I_B = ((3.3f * (float)ADC_buf[2] / 4096.0f / 16.0f) - 1.65f) /
                     (shunt_res * op_amp_gain);
-    inverter->I_C = ((3.3f * (float)ADC_buf[3] / 4096.0f) - 1.65f) /
+    inverter->I_C = ((3.3f * (float)ADC_buf[3] / 4096.0f / 16.0f) - 1.65f) /
                     (shunt_res * op_amp_gain);
-
-    inverter->busV =
-        12.0f * 3.3f * ADC_buf[0] / 4096.0f;  // drivers input voltage
+    */
+    inverter->busV = 12.0f * 3.3f * ADC_buf[0] / 4096.0f / 16.0f;  // drivers input voltage
 }
 
 #ifdef DEBUG
@@ -286,14 +276,13 @@ void motor_control(
         DQA = 1000 + (int16_t) (1000.0f * DVA);
         DQB = 1000 + (int16_t) (1000.0f * DVB);
         DQC = 1000 + (int16_t) (1000.0f * DVC);
-    } else if (driver->State == STUPID_CONTROL) {
-        stupid_control(driver, inverter, pid, &DQA, &DQB, &DQC);
-    } else if (driver->State == OBSERVER_CONTROL) {
-        observer_control(driver, encoder, inverter, pid, &DQA, &DQB, &DQC);
     } else if (driver->State == SIX_STEP_CONTROL) {
         six_step_control(driver, encoder, inverter, pid, &DQA, &DQB, &DQC);
     }
     else if (driver->State == NO_ACTION) {
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, GPIO_PIN_SET);
         DQA = DQB = DQC = 0;
     }
     else if (driver->State == CLBR) {
