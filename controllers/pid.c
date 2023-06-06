@@ -43,7 +43,7 @@ void make_pid_config_reserved(
 }
 
 double regulation(PIDConfig* config, double error, double dt) {
-    if (fabs(error) <= 0.05) {
+    if (fabs(error) <= config->tolerance) {
         config->signal = 0;
         return 0;
     }

@@ -66,7 +66,6 @@ uint16_t AS5048A_read(AS5048AConfig* config, AS5048ARegister reg);
 uint16_t AS5048A_get_angle(AS5048AConfig* config);
 
 // ~200 ns delay for the SPI communication
-#pragma optimize = s none
 __attribute__((always_inline)) static inline void CS_delay(void) {
     uint8_t k = 32;
     while (k--) {

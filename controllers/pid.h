@@ -30,6 +30,7 @@ typedef struct PIDConfig {
     double integral_error;
     double prev_error;
     double integral_error_lim;
+    double tolerance;
     double signal;
 } PIDConfig;
 

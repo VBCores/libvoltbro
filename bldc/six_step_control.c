@@ -47,86 +47,109 @@ force_inline void flow_direction(DrivePhase from, DrivePhase to, uint16_t* DQs[3
     *DQs[from] = actual_pwm;
 }
 
-void calculate_angles(DriverState* driver);
-void calculate_speed(DriverState* driver);
-int16_t get_control(DriverState* driver, PIDConfig* pid, double passed_time_abs, int16_t pwm);
+void calculate_angles(DriveInfo* drive, DriverControl* controller);
+void calculate_speed(DriveInfo* drive, DriverControl* controller);
+void detect_stall(DriveInfo* drive, DriverControl* controller, double passed_time_abs);
 
-//#define USE_SPEEDS
+int16_t get_control(
+    DriveInfo* driver,
+    DriverControl* controller,
+    InverterState* inverter,
+    double passed_time_abs,
+    DrivePhase current_relative,
+    int16_t pwm
+);
+
+#define USE_CONTROL
 #ifdef DEBUG
 int16_t PWM;
 uint32_t ticks_since_sample_abs = 0;
+DrivePhase first;
+DrivePhase second;
 #endif
 void six_step_control(
-    DriverState* driver,
     GEncoder* encoder,
+    DriverControl* controller,
+    DriveInfo* drive,
     InverterState* inverter,
-    PIDConfig* pid,
     uint16_t* DQA,
     uint16_t* DQB,
     uint16_t* DQC
 ) {
-    if (!driver->is_on) {
+    if (!drive->is_on) {
         return;
     }
 
     IncrementalEncoder* inc_encoder = (IncrementalEncoder*)encoder;
-    // Guards
-    if (inc_encoder->step < 0) {
-        return;
-    }
     // for convenience
     const EncoderStep step = inc_encoder->step;
 
 #ifndef DEBUG
     static uint16_t PWM;
     static uint32_t ticks_since_sample_abs = 0;
+    static DrivePhase from;
+    static DrivePhase to;
 #endif
-    // refresh encoder
-#ifdef USE_SPEEDS
-    as5048a.common.value = as5048a.common.get_angle((GEncoder*)&as5048a);
-    calculate_angles(driver);
 
-    double passed_time_abs = ticks_since_sample_abs * driver->T;
-    if (passed_time_abs > driver->sampling_interval) {
-        calculate_speed(driver);
-       PWM = get_control(driver, pid, passed_time_abs, PWM);
+    uint16_t* DQs[3] = {DQA, DQB, DQC};
+    switch (step) {
+        case AB:
+            first = PHASE_A;
+            second = PHASE_B;
+            break;
+        case AC:
+            first = PHASE_A;
+            second = PHASE_C;
+            break;
+        case BC:
+            first = PHASE_B;
+            second = PHASE_C;
+            break;
+        case BA:
+            first = PHASE_B;
+            second = PHASE_A;
+            break;
+        case CA:
+            first = PHASE_C;
+            second = PHASE_A;
+            break;
+        case CB:
+            first = PHASE_C;
+            second = PHASE_B;
+            break;
+    }
+
+#ifdef USE_CONTROL
+    as5048a.common.value = as5048a.common.get_angle((GEncoder*)&as5048a);
+    calculate_angles(drive, controller);
+
+    double passed_time_abs = ticks_since_sample_abs * controller->T;
+    if (passed_time_abs > controller->sampling_interval) {
+        calculate_speed(drive, controller);
+        //detect_stall(drive, controller, passed_time_abs);
+        PWM = get_control(drive, controller, inverter, passed_time_abs, first, PWM);
+
         ticks_since_sample_abs = 0;
     } else {
         ticks_since_sample_abs += 1;
     }
 #else
-    PWM = 1999;
+    PWM = 500;
 #endif
-    uint16_t* DQs[3] = {DQA, DQB, DQC};
-    switch (step) {
-        case AB:
-            flow_direction(PHASE_A, PHASE_B, DQs, PWM);
-            break;
-        case AC:
-            flow_direction(PHASE_A, PHASE_C, DQs, PWM);
-            break;
-        case BC:
-            flow_direction(PHASE_B, PHASE_C, DQs, PWM);
-            break;
-        case BA:
-            flow_direction(PHASE_B, PHASE_A, DQs, PWM);
-            break;
-        case CA:
-            flow_direction(PHASE_C, PHASE_A, DQs, PWM);
-            break;
-        case CB:
-            flow_direction(PHASE_C, PHASE_B, DQs, PWM);
-            break;
+
+    // TODO: fix?
+    int16_t actual_pwm = PWM;
+    if (!as5048a.common.inverted) {
+        // due to current flow in reverse direction to voltage
+        actual_pwm = -actual_pwm;
     }
+    flow_direction(first, second, DQs, actual_pwm);
 }
 
 #ifdef DEBUG
 uint16_t filtered_data;
-float speed_error;
-
-double pid_signal;
 #endif
-void calculate_angles(DriverState* driver) {
+void calculate_angles(DriveInfo* drive, DriverControl* controller) {
 #ifndef DEBUG
     float speed_error
 #endif
@@ -150,31 +173,31 @@ void calculate_angles(DriverState* driver) {
     }
 
     filtered_data = (uint16_t)lp_filter(
-        driver->encoder_filtering,
+        controller->encoder_filtering,
         (float)prev_abs_value,
         (float)aligned_encoder_data
     );
     prev_abs_value = filtered_data;
 
-    driver->ShaftAngle = pi2 * ((float)filtered_data / (float)as5048a.common.CPR);
+    drive->shaft_angle = pi2 * ((float)filtered_data / (float)as5048a.common.CPR);
 }
 
 #ifdef DEBUG
 float travel;
 #endif
-void calculate_speed(DriverState* driver) {
+void calculate_speed(DriveInfo* drive, DriverControl* controller) {
     static float prev_velocity = 0;
     static float prev_angle = -1;
 
     if (prev_angle < 0) {
-        prev_angle = driver->ShaftAngle;
+        prev_angle = drive->shaft_angle;
         return;
     }
 
 #ifndef DEBUG
     float travel
 #endif
-    travel = driver->ShaftAngle - prev_angle;
+    travel = drive->shaft_angle - prev_angle;
     if (travel < -PI) {
         travel += pi2;
     }
@@ -182,32 +205,77 @@ void calculate_speed(DriverState* driver) {
         travel -= pi2;
     }
 
-    float new_speed = travel / driver->sampling_interval;
-    driver->ShaftVelocity = lp_filter(driver->speed_filtering, prev_velocity, new_speed);
+    float new_speed = travel / controller->sampling_interval;
+    drive->shaft_velocity = lp_filter(controller->speed_filtering, prev_velocity, new_speed);
 
-    prev_velocity = driver->ShaftVelocity;
-    prev_angle = driver->ShaftAngle;
+    prev_velocity = drive->shaft_velocity;
+    prev_angle = drive->shaft_angle;
+}
+
+force_inline float get_current(InverterState* inverter, DrivePhase current_relative) {
+    return -*(&inverter->I_A + current_relative);
 }
 
 // TODO: make configurable
-#define MAX_PWM_PER_S 800.0f
-#define PID_DIV 20.0f
+#define MAX_PWM_PER_S 1200.0f
+#define I_CONST 0.5
+#define PWM_CONST 150
 #define MAX_PWM 1999
-int16_t get_control(DriverState* driver, PIDConfig* pid, double passed_time_abs, int16_t pwm) {
-    // PID
-    speed_error = driver->vel_SetP - driver->ShaftVelocity;
-    regulation(pid, speed_error, passed_time_abs);
-#ifndef DEBUG
-    double pid_signal;
+#ifdef DEBUG
+double control_signal;
+float speed_error;
+float I_error;
+double I_signal;
+double new_I_signal;
+double S_signal;
 #endif
-    pid_signal = pid->signal; // amplifier
+int16_t get_control(
+    DriveInfo* driver,
+    DriverControl* controller,
+    InverterState* inverter,
+    double passed_time_abs,
+    DrivePhase current_relative,
+    int16_t pwm
+) {
+#ifndef DEBUG
+    double control_signal;
+    float speed_error;
+    float I_error;
+    double I_signal;
+    double new_I_signal;
+    double S_signal;
+#endif
+    /*
+     * Как это работает:
+     * 1) Получаем сигнал для скорости S_sig
+     * 2) Из него получаем изменение тока: I_err = S_sig * Kt
+     * 3) Получаем сигнал для тока I_sig
+     * 4) I_target = max(I_lim, I_now + I_sig);
+     * 5) new_I_sig = I_target - I_now
+     * 6) изменение PWM_new = PWM_prev + new_I_sig * coeff
+     */
 
-    const float max_change_per_sample = MAX_PWM_PER_S * driver->sampling_interval;
-    if (fabs(pid_signal) > max_change_per_sample) {
-        pid_signal = copysign(max_change_per_sample, pid_signal);
+    speed_error = controller->velocity_target - driver->shaft_velocity;
+    S_signal = regulation(&controller->velocity_regulator, speed_error, passed_time_abs);
+
+    I_error = S_signal * driver->torque_const;
+    I_signal = regulation(&controller->current_regulator, I_error, passed_time_abs);
+
+    float I_now = get_current(inverter, current_relative);
+    float I_target = I_now + I_signal * I_CONST;
+    if (fabs(I_target) > controller->current_limit) {
+        I_target = copysign(controller->current_limit, I_target);
     }
 
-    pwm -= (int16_t)pid_signal;
+    new_I_signal = I_target - I_now;
+    control_signal = new_I_signal * PWM_CONST;
+
+    // PWM guards
+    const float max_change_per_sample = MAX_PWM_PER_S * controller->sampling_interval;
+    if (fabs(control_signal) > max_change_per_sample) {
+        control_signal = copysign(max_change_per_sample, control_signal);
+    }
+    pwm += (int16_t)control_signal;
     if (abs(pwm) > MAX_PWM) {
         pwm = copysign(MAX_PWM, pwm);
     }
@@ -215,4 +283,35 @@ int16_t get_control(DriverState* driver, PIDConfig* pid, double passed_time_abs,
     // TODO
 #endif
     return pwm;
+}
+
+void detect_stall(DriveInfo* drive, DriverControl* controller, double passed_time_abs) {
+    static double cur_time = 0;
+    cur_time += passed_time_abs;
+
+    static float user_current_limit = -1;
+    if (user_current_limit < 0) {
+        user_current_limit = controller->current_limit;
+    }
+
+    static double stall_start_time = 0;
+    static bool is_stalling = false;
+    if (drive->shaft_velocity < controller->stall_tolerance) {
+        if (!is_stalling) {
+            user_current_limit = controller->current_limit;
+            is_stalling = true;
+            stall_start_time = cur_time;
+        }
+    }
+    else {
+        controller->current_limit = user_current_limit;
+        is_stalling = false;
+    }
+
+    if (is_stalling) {
+        if ( (cur_time - stall_start_time) > controller->stall_timeout) {
+            controller->current_limit = drive->stall_current;
+        }
+    }
+
 }

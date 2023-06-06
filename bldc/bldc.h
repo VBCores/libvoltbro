@@ -30,41 +30,48 @@ extern "C" {
 #include "encoders/generic.h"
 #include "utils.h"
 
-#define FOC 0
-#define CLBR 1
-#define ROTATE 2
-#define CURRENT 3
-#define CURRENT_STEP 4
-#define SIX_STEP_CONTROL 5
-#define NO_ACTION 6
-#define TESTS
+typedef enum {
+    CALIBRATE,
+    ROTATE,
+    CURRENT,
+    SIX_STEP_CONTROL,
+    NO_ACTION
+} ControlMode;
 
 typedef struct {
     bool is_on;
-    bool predict_change;
-    uint8_t State;  // Device state such as FOC, Calibration etc*/
-    float encoder_filtering;
-    float speed_filtering;
-    float sampling_interval;
+
     uint16_t pulses_per_pair;
 
-    float ShaftAngle;     // device's output shaft mechanical angle, rad
-    float ShaftVelocity;  // device's output shaft angular velocity, rad/s
-    int32_t RotorTurns;   // motor's rotor rotation number, int
-    float ElecTheta;      // motor's electrical angle, electrical rad
+    float shaft_angle;     // device's output shaft mechanical angle, rad
+    float shaft_velocity;  // device's output shaft angular velocity, rad/s
+    int32_t rotor_turns;   // motor's rotor rotation number, int
+    float elec_theta;      // motor's electrical angle, electrical rad
 
-    const double T;  // encoder value sampling period, s
     // motor physical properties
     const uint32_t gear_ratio;
     const uint32_t ppairs;
     const float torque_const;
     const float speed_const;
-} DriverState;
+    const float max_current;
+    const float stall_current;
+} DriveInfo;
 
 typedef struct {
+    bool predict_change;
+    bool detect_stall;
+    ControlMode mode;
+
+    float encoder_filtering;
+    float speed_filtering;
+    float sampling_interval;
+    float stall_timeout;
+    float stall_tolerance;
+
     float velocity_target;
-    float current_target;
-    float current_max;
+    float current_limit;
+
+    const double T;  // encoder value sampling period, s
 
     PIDConfig velocity_regulator;
     PIDConfig current_regulator;
@@ -83,21 +90,34 @@ typedef struct {
     float I_C_offset;
 } InverterState;
 
-void CalculateAnglesSimple(
-    DriverState* Driver,
-    GEncoder* encoder,
-    PIDConfig* pid
-);
-void CalculateAngles(DriverState* Driver, GEncoder* encoder);
-void ProcessADC(InverterState* inverter, const uint32_t ADC_buf[]);
+
 void motor_control(
-    DriverState* driver,
+    DriverControl* controller,
+    DriveInfo* drive,
     InverterState* inverter,
-    PIDConfig* pid,
     const uint32_t ADC_buf[],
     GEncoder* encoder,
     TIM_HandleTypeDef* htim
 );
+
+// process_ADC.c
+void process_ADC(InverterState* inverter, const uint32_t ADC_buf[]);
+
+#define CONTROL_FUNC_ARGS\
+    DriverControl* controller,\
+    DriveInfo* drive,\
+    InverterState* inverter,\
+    uint16_t* dqa,\
+    uint16_t* dqb,\
+    uint16_t* dqc
+// six_step_control.c
+void six_step_control(
+    GEncoder* encoder,
+    CONTROL_FUNC_ARGS
+);
+// simple_modes.c
+void current_mode(CONTROL_FUNC_ARGS);
+void rotate_mode(CONTROL_FUNC_ARGS);
 
 #define pi2 (2.0f * PI)
 
