@@ -126,7 +126,7 @@ void six_step_control(
     double passed_time_abs = ticks_since_sample_abs * controller->T;
     if (passed_time_abs > controller->sampling_interval) {
         calculate_speed(drive, controller);
-        //detect_stall(drive, controller, passed_time_abs);
+        detect_stall(drive, controller, passed_time_abs);
         PWM = get_control(drive, controller, inverter, passed_time_abs, first, PWM);
 
         ticks_since_sample_abs = 0;
@@ -285,18 +285,26 @@ int16_t get_control(
     return pwm;
 }
 
+#ifdef DEBUG
+double cur_time = 0;
+float user_current_limit = -1;
+double stall_start_time = 0;
+bool is_stalling = false;
+#endif
 void detect_stall(DriveInfo* drive, DriverControl* controller, double passed_time_abs) {
+#ifndef DEBUG
     static double cur_time = 0;
+    static float user_current_limit = -1;
+    static double stall_start_time = 0;
+    static bool is_stalling = false;
+#endif
     cur_time += passed_time_abs;
 
-    static float user_current_limit = -1;
     if (user_current_limit < 0) {
         user_current_limit = controller->current_limit;
     }
 
-    static double stall_start_time = 0;
-    static bool is_stalling = false;
-    if (drive->shaft_velocity < controller->stall_tolerance) {
+    if (fabsf(drive->shaft_velocity) < controller->stall_tolerance) {
         if (!is_stalling) {
             user_current_limit = controller->current_limit;
             is_stalling = true;
