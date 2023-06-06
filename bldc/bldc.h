@@ -53,21 +53,22 @@ typedef struct {
     int32_t RotorTurns;   // motor's rotor rotation number, int
     float ElecTheta;      // motor's electrical angle, electrical rad
 
-    // dynamically set FOC setpoints and gains
-    float mech_SetP;
-    float mech_gain;
-    float vel_SetP;
-    float vel_gain;
-    float torq_SetP;
-
     const double T;  // encoder value sampling period, s
     // motor physical properties
     const uint32_t gear_ratio;
     const uint32_t ppairs;
     const float torque_const;
-    float max_torque;
-    float max_V;
+    const float speed_const;
 } DriverState;
+
+typedef struct {
+    float velocity_target;
+    float current_target;
+    float current_max;
+
+    PIDConfig velocity_regulator;
+    PIDConfig current_regulator;
+} DriverControl;
 
 typedef struct {
     float I_A;

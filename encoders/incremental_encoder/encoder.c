@@ -10,22 +10,7 @@
 #include "utils.h"
 
 force_inline EncoderStep get_encoder_step(IncrementalEncoder* encoder) {
-    /*
-    if (encoder->state_3) {
-        if (encoder->state_1)
-            return 1;
-        if (encoder->state_2)
-            return 5;
-        return 0;
-    }
-    if (encoder->state_1) {
-        if (encoder->state_2)
-            return 3;
-        return 2;
-    }
-    return 4;
-     */
-    return encoder->state_1 * 2 + encoder->state_2*4 + encoder->state_3;
+    return encoder->state_1 + encoder->state_2*2 + encoder->state_3*4;
 }
 
 force_inline bool get_pin_state(const GPIO_TypeDef* gpiox, pin p) {

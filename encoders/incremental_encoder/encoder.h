@@ -27,12 +27,12 @@ extern "C" {
 #endif
 
 typedef enum {
-    AB = 1,  // A->B
-    AC = 2,  // A->C
-    BC = 3,  // B->C
-    BA = 4,  // B->A
-    CA = 5,  // C->A
-    CB = 6,  // C->B
+    CA = 1,
+    AB = 2,
+    CB = 3,
+    BC = 4,
+    BA = 5,
+    AC = 6,
 } EncoderStep;
 
 typedef struct IncrementalEncoder {

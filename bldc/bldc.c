@@ -261,11 +261,14 @@ void motor_control(
         DQB = 1000 + (int16_t) (1000.0f * DVB);
         DQC = 1000 + (int16_t) (1000.0f * DVC);
     } else if (driver->State == ROTATE) {
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, GPIO_PIN_SET);
         sf = arm_sin_f32(calib_elec_angle);
         cf = arm_cos_f32(calib_elec_angle);
         driver->ElecTheta = (float) (((IncrementalEncoder *) encoder)->step * pi2 / 6);
 
-        const float const_Vd = -0.3f;
+        const float const_Vd = -0.2f;
         const float const_Vq = 0.0f;
 
         float DVA, DVB, DVC;

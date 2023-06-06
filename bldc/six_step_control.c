@@ -95,24 +95,24 @@ void six_step_control(
         ticks_since_sample_abs += 1;
     }
 #else
-    PWM = 200;
+    PWM = 1999;
 #endif
     uint16_t* DQs[3] = {DQA, DQB, DQC};
     switch (step) {
         case AB:
-            flow_direction(PHASE_B, PHASE_C, DQs, PWM);
-            break;
-        case AC:
-            flow_direction(PHASE_C, PHASE_A, DQs, PWM);
-            break;
-        case BC:
-            flow_direction(PHASE_B, PHASE_A, DQs, PWM);
-            break;
-        case BA:
             flow_direction(PHASE_A, PHASE_B, DQs, PWM);
             break;
-        case CA:
+        case AC:
             flow_direction(PHASE_A, PHASE_C, DQs, PWM);
+            break;
+        case BC:
+            flow_direction(PHASE_B, PHASE_C, DQs, PWM);
+            break;
+        case BA:
+            flow_direction(PHASE_B, PHASE_A, DQs, PWM);
+            break;
+        case CA:
+            flow_direction(PHASE_C, PHASE_A, DQs, PWM);
             break;
         case CB:
             flow_direction(PHASE_C, PHASE_B, DQs, PWM);
