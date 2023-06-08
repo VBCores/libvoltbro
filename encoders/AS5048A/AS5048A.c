@@ -51,33 +51,19 @@ AS5048AConfig* make_AS5048A_config(
         return NULL;
     }
 
-    make_AS5048A_config_reserved(
-        config,
-        inverted,
-        CPR,
-        elec_offset,
-        spi,
-        SPI_SS_GPIOx,
-        SPI_SS
-    );
+    make_AS5048A_config_reserved(config, inverted, CPR, elec_offset, spi, SPI_SS_GPIOx, SPI_SS);
 
     return config;
 }
 
-HAL_StatusTypeDef
-spi_transmit_command(AS5048AConfig* config, uint16_t command) {
+HAL_StatusTypeDef spi_transmit_command(AS5048AConfig* config, uint16_t command) {
     return HAL_SPI_Transmit(config->spi, (uint8_t*)&command, 1, 1000);
 }
 
 uint16_t spi_transmit_command_receive(AS5048AConfig* config, uint16_t command) {
     uint16_t response;
-    HAL_StatusTypeDef tr_status = HAL_SPI_TransmitReceive(
-        config->spi,
-        (uint8_t*)&command,
-        (uint8_t*)&response,
-        1,
-        1000
-    );
+    HAL_StatusTypeDef tr_status =
+        HAL_SPI_TransmitReceive(config->spi, (uint8_t*)&command, (uint8_t*)&response, 1, 1000);
     if (tr_status != HAL_OK) {
         // TODO?
     }

@@ -77,21 +77,17 @@ extern const double CIRCLE_RADIANS;
 // into a series of register operations, and they are called in performance
 // critical places, so they are forced to be inlined
 
-__attribute__((always_inline)) static inline double get_motor_actual_speed(
-    DriverConfig* config,
-    int32_t encoder_diff,
-    uint32_t dt
-) {
-    double radians_passed =
-        ((double)encoder_diff / config->pulses_per_revolution) * CIRCLE_RADIANS;
+__attribute__((always_inline)) static inline double
+get_motor_actual_speed(DriverConfig* config, int32_t encoder_diff, uint32_t dt) {
+    double radians_passed = ((double)encoder_diff / config->pulses_per_revolution) * CIRCLE_RADIANS;
     double radian_speed = radians_passed / dt * 1000;
     return radian_speed;
 }
 
 __attribute__((always_inline)) static inline double
 radian_speed_to_pwm(DriverConfig* config, double radian_speed) {
-    double part_of_speed = config->microseconds_per_revolution /
-                           ((CIRCLE_RADIANS / radian_speed) * 1000);
+    double part_of_speed =
+        config->microseconds_per_revolution / ((CIRCLE_RADIANS / radian_speed) * 1000);
     if (config->is_small) {
         // If motor is "small", at very low voltages (e.g. < 0.5Vmax) it almost
         // doesn't move at all - not enough current So we must move PWM range

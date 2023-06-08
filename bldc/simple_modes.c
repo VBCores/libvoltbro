@@ -34,9 +34,9 @@ void current_mode(
     // inverse dq0 transform on voltages
     abc(sf, cf, const_Vd, const_Vq, &DVA, &DVB, &DVC);
 
-    *dqa = 1000 + (int16_t) (1000.0f * DVA);
-    *dqb = 1000 + (int16_t) (1000.0f * DVB);
-    *dqc = 1000 + (int16_t) (1000.0f * DVC);
+    *dqa = 1000 + (int16_t)(1000.0f * DVA);
+    *dqb = 1000 + (int16_t)(1000.0f * DVB);
+    *dqc = 1000 + (int16_t)(1000.0f * DVC);
 }
 
 void rotate_mode(
@@ -58,7 +58,7 @@ void rotate_mode(
     // inverse dq0 transform on voltages
     abc(sf, cf, const_Vd, const_Vq, &DVA, &DVB, &DVC);
 
-    *dqa = 1000 + (int16_t) (1000.0f * DVA);
-    *dqb = 1000 + (int16_t) (1000.0f * DVB);
-    *dqc = 1000 + (int16_t) (1000.0f * DVC);
+    *dqa = 1000 + (int16_t)(1000.0f * DVA);
+    *dqb = 1000 + (int16_t)(1000.0f * DVB);
+    *dqc = 1000 + (int16_t)(1000.0f * DVC);
 }

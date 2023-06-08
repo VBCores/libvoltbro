@@ -27,12 +27,10 @@ extern CAN_HandleTypeDef hcan1;
 #endif
 
 extern O1HeapInstance* o1heap;
-extern CanardInstance
-    canard;  // This is the core structure that keeps all the states and
-             // allocated resources of the library instance
-extern CanardTxQueue
-    queue;  // Prioritized transmission queue that keeps CAN frames destined for
-            // transmission via one CAN interface
+extern CanardInstance canard;  // This is the core structure that keeps all the states and
+                               // allocated resources of the library instance
+extern CanardTxQueue queue;    // Prioritized transmission queue that keeps CAN frames destined for
+                               // transmission via one CAN interface
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,10 +54,7 @@ void cyphal_push(
 void process_tx_queue();
 
 #if defined(STM32G474xx) || defined(STM32_G)
-void process_rx_frame(
-    const FDCAN_RxHeaderTypeDef* rx_header,
-    uint8_t rx_data[]
-);
+void process_rx_frame(const FDCAN_RxHeaderTypeDef* rx_header, uint8_t rx_data[]);
 #else
 void process_rx_frame(const CAN_RxHeaderTypeDef* rx_header, uint8_t rx_data[]);
 #endif
@@ -68,9 +63,8 @@ void cyphal_subscribe(
     CanardPortID port_id,
     size_t extent,
     CanardRxSubscription* const subscription,
-    void(*callback)(CanardRxTransfer*)
+    void (*callback)(CanardRxTransfer*)
 );
-
 
 #ifdef __cplusplus
 }

@@ -75,10 +75,8 @@ int motor_set_speed(DriverConfig* config, double speed) {
     if (speed > 1) {
         speed = 1.0;
     }
-    pwm_channel channel_on =
-        (speed < 0) ? config->IN1_channel : config->IN2_channel;
-    pwm_channel channel_off =
-        (speed < 0) ? config->IN2_channel : config->IN1_channel;
+    pwm_channel channel_on = (speed < 0) ? config->IN1_channel : config->IN2_channel;
+    pwm_channel channel_off = (speed < 0) ? config->IN2_channel : config->IN1_channel;
     tim_register compare = (tim_register)(config->period * fabs(speed));
     __HAL_TIM_SET_COMPARE(config->timer, channel_on, compare);
     __HAL_TIM_SET_COMPARE(config->timer, channel_off, 0);
@@ -119,10 +117,8 @@ int motor_set_radian_speed(DriverConfig* config, double radianSpeed) {
     return motor_set_speed(config, radian_speed_to_pwm(config, radianSpeed));
 }
 
-double
-get_motor_error(DriverConfig* config, int32_t encoder_diff, uint32_t dt) {
-    return config->target_radian_speed -
-           get_motor_actual_speed(config, encoder_diff, dt);
+double get_motor_error(DriverConfig* config, int32_t encoder_diff, uint32_t dt) {
+    return config->target_radian_speed - get_motor_actual_speed(config, encoder_diff, dt);
 }
 
 double Vref_from_Ichop(DriverConfig* config, double Ichop) {
@@ -145,12 +141,8 @@ int motor_set_Ichop(DriverConfig* config, double Ichop) {
     }
 
     uint32_t dac_val = dac_value(vref);
-    HAL_StatusTypeDef status = HAL_DAC_SetValue(
-        config->dac,
-        config->dac_channel_,
-        DAC_ALIGN_12B_R,
-        dac_val
-    );
+    HAL_StatusTypeDef status =
+        HAL_DAC_SetValue(config->dac, config->dac_channel_, DAC_ALIGN_12B_R, dac_val);
     if (status == HAL_OK) {
         config->Ichop = Ichop;
     }

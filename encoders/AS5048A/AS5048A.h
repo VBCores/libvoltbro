@@ -73,16 +73,12 @@ __attribute__((always_inline)) static inline void CS_delay(void) {
     }
 }
 
-__attribute__((always_inline)) static inline void AS5048A_start_transaction(
-    AS5048AConfig* config
-) {
+__attribute__((always_inline)) static inline void AS5048A_start_transaction(AS5048AConfig* config) {
     CS_delay();
     HAL_GPIO_WritePin(config->SPI_SS_GPIOx, config->SPI_SS, GPIO_PIN_RESET);
 }
 
-__attribute__((always_inline)) static inline void AS5048A_end_transaction(
-    AS5048AConfig* config
-) {
+__attribute__((always_inline)) static inline void AS5048A_end_transaction(AS5048AConfig* config) {
     HAL_GPIO_WritePin(config->SPI_SS_GPIOx, config->SPI_SS, GPIO_PIN_SET);
 }
 

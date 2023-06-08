@@ -45,11 +45,10 @@ void dq0(float sf, float cf, float a, float b, float c, float* d, float* q) {
     // float cf = arm_cos_f32(theta);
     // float sf = arm_sin_f32(theta);
 
-    *d = 0.6666667f *
-         (cf * a + (0.86602540378f * sf - .5f * cf) * b +
-          (-0.86602540378f * sf - .5f * cf) * c);  /// Faster DQ0 Transform
-    *q = 0.6666667f * (-sf * a - (-0.86602540378f * cf - .5f * sf) * b -
-                       (0.86602540378f * cf - .5f * sf) * c);
+    *d = 0.6666667f * (cf * a + (0.86602540378f * sf - .5f * cf) * b +
+                       (-0.86602540378f * sf - .5f * cf) * c);  /// Faster DQ0 Transform
+    *q = 0.6666667f *
+         (-sf * a - (-0.86602540378f * cf - .5f * sf) * b - (0.86602540378f * cf - .5f * sf) * c);
 }
 
 void abc(float sf, float cf, float d, float q, float* a, float* b, float* c) {
@@ -60,21 +59,11 @@ void abc(float sf, float cf, float d, float q, float* a, float* b, float* c) {
     // float sf = arm_sin_f32(theta);
 
     *a = cf * d - sf * q;  // Faster Inverse DQ0 transform
-    *b = (0.86602540378f * sf - .5f * cf) * d -
-         (-0.86602540378f * cf - .5f * sf) * q;
-    *c = (-0.86602540378f * sf - .5f * cf) * d -
-         (0.86602540378f * cf - .5f * sf) * q;
+    *b = (0.86602540378f * sf - .5f * cf) * d - (-0.86602540378f * cf - .5f * sf) * q;
+    *c = (-0.86602540378f * sf - .5f * cf) * d - (0.86602540378f * cf - .5f * sf) * q;
 }
 
-void svm(
-    float v_bus,
-    float u,
-    float v,
-    float w,
-    float* dtc_u,
-    float* dtc_v,
-    float* dtc_w
-) {
+void svm(float v_bus, float u, float v, float w, float* dtc_u, float* dtc_v, float* dtc_w) {
     /// Space Vector Modulation ///
     /// u,v,w amplitude = v_bus for full modulation depth ///
 

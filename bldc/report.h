@@ -14,4 +14,4 @@ typedef struct {
 
 #define REPORT_STATE
 
-#endif  /* VBLIB_BLDC_REPORT_H_ */
+#endif /* VBLIB_BLDC_REPORT_H_ */

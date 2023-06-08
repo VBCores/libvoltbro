@@ -10,12 +10,11 @@
 #include "utils.h"
 
 force_inline EncoderStep get_encoder_step(IncrementalEncoder* encoder) {
-    return encoder->state_1 + encoder->state_2*2 + encoder->state_3*4;
+    return encoder->state_1 + encoder->state_2 * 2 + encoder->state_3 * 4;
 }
 
 force_inline bool get_pin_state(const GPIO_TypeDef* gpiox, pin p) {
-    return HAL_GPIO_ReadPin((GPIO_TypeDef*)gpiox, p) == GPIO_PIN_SET ? true
-                                                                     : false;
+    return HAL_GPIO_ReadPin((GPIO_TypeDef*)gpiox, p) == GPIO_PIN_SET ? true : false;
 }
 
 uint16_t nop(GEncoder* encoder) {

@@ -8,8 +8,8 @@
 
 #include "arm_math.h"
 
-#include "encoders/incremental_encoder/encoder.h"
 #include "encoders/AS5048A/AS5048A.h"
+#include "encoders/incremental_encoder/encoder.h"
 
 #include "report.h"
 
@@ -21,11 +21,7 @@ BLDCReport bldc_report;
 // TODO: move to config
 pin L_PINS[3] = {GPIO_PIN_13, GPIO_PIN_14, GPIO_PIN_15};
 
-typedef enum {
-    PHASE_A = 0,
-    PHASE_B = 1,
-    PHASE_C = 2
-} DrivePhase;
+typedef enum { PHASE_A = 0, PHASE_B = 1, PHASE_C = 2 } DrivePhase;
 
 // inline to avoid copying
 force_inline void flow_direction(DrivePhase from, DrivePhase to, uint16_t* DQs[3], int16_t pwm) {
@@ -36,9 +32,12 @@ force_inline void flow_direction(DrivePhase from, DrivePhase to, uint16_t* DQs[3
         from = tmp;
     }
     DrivePhase off;
-    if (PHASE_A != from && PHASE_A != to) off = PHASE_A;
-    if (PHASE_B != from && PHASE_B != to) off = PHASE_B;
-    if (PHASE_C != from && PHASE_C != to) off = PHASE_C;
+    if (PHASE_A != from && PHASE_A != to)
+        off = PHASE_A;
+    if (PHASE_B != from && PHASE_B != to)
+        off = PHASE_B;
+    if (PHASE_C != from && PHASE_C != to)
+        off = PHASE_C;
     HAL_GPIO_WritePin(GPIOB, L_PINS[off], GPIO_PIN_RESET);
 
     HAL_GPIO_WritePin(GPIOB, L_PINS[from], GPIO_PIN_SET);
@@ -60,7 +59,7 @@ int16_t get_control(
     int16_t pwm
 );
 
-//#define USE_CONTROL
+// #define USE_CONTROL
 #ifdef DEBUG
 int16_t PWM;
 uint32_t ticks_since_sample_abs = 0;
@@ -156,7 +155,7 @@ void calculate_angles(DriveInfo* drive, DriverControl* controller) {
 #ifndef DEBUG
     float speed_error
 #endif
-    const uint16_t abs_value = as5048a.common.value;
+        const uint16_t abs_value = as5048a.common.value;
 
     static uint16_t prev_abs_value = -1;  // initial bigger than CPR
     int32_t aligned_encoder_data = abs_value - as5048a.common.elec_offset;
@@ -175,11 +174,8 @@ void calculate_angles(DriveInfo* drive, DriverControl* controller) {
         return;
     }
 
-    filtered_data = (uint16_t)lp_filter(
-        controller->encoder_filtering,
-        (float)prev_abs_value,
-        (float)aligned_encoder_data
-    );
+    filtered_data = (uint16_t
+    )lp_filter(controller->encoder_filtering, (float)prev_abs_value, (float)aligned_encoder_data);
     prev_abs_value = filtered_data;
 
     drive->shaft_angle = pi2 * ((float)filtered_data / (float)as5048a.common.CPR);
@@ -200,11 +196,10 @@ void calculate_speed(DriveInfo* drive, DriverControl* controller) {
 #ifndef DEBUG
     float travel
 #endif
-    travel = drive->shaft_angle - prev_angle;
+        travel = drive->shaft_angle - prev_angle;
     if (travel < -PI) {
         travel += pi2;
-    }
-    else if (travel > PI) {
+    } else if (travel > PI) {
         travel -= pi2;
     }
 
@@ -305,16 +300,14 @@ void detect_stall(DriveInfo* drive, DriverControl* controller, double passed_tim
             drive->is_stalling = true;
             stall_start_time = cur_time;
         }
-    }
-    else {
+    } else {
         controller->current_limit = user_current_limit;
         drive->is_stalling = false;
     }
 
     if (drive->is_stalling) {
-        if ( (cur_time - stall_start_time) > controller->stall_timeout) {
+        if ((cur_time - stall_start_time) > controller->stall_timeout) {
             controller->current_limit = drive->stall_current;
         }
     }
-
 }

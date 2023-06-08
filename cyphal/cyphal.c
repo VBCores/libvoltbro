@@ -69,13 +69,8 @@ void send_heartbeat(uint8_t health, uint8_t mode) {
         .vendor_specific_status_code = canard.node_id,
     };
     // Serialize the heartbeat message
-    size_t hbeat_ser_buf_size =
-        uavcan_node_Heartbeat_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;
-    if (uavcan_node_Heartbeat_1_0_serialize_(
-            &heartbeat,
-            hbeat_ser_buf,
-            &hbeat_ser_buf_size
-        ) < 0) {
+    size_t hbeat_ser_buf_size = uavcan_node_Heartbeat_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;
+    if (uavcan_node_Heartbeat_1_0_serialize_(&heartbeat, hbeat_ser_buf, &hbeat_ser_buf_size) < 0) {
         Error_Handler();
     }
     const CanardTransferMetadata heartbeat_transfer_metadata = {
@@ -202,8 +197,7 @@ void process_tx_queue() {
             TxHeader.Identifier = ti->frame.extended_can_id;
             TxHeader.IdType = FDCAN_EXTENDED_ID;
             TxHeader.TxFrameType = FDCAN_DATA_FRAME;
-            TxHeader.DataLength =
-                CanardFDCANLengthToDLC[ti->frame.payload_size];
+            TxHeader.DataLength = CanardFDCANLengthToDLC[ti->frame.payload_size];
             TxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
             TxHeader.BitRateSwitch = FDCAN_BRS_OFF;
             TxHeader.FDFormat = FDCAN_FD_CAN;
@@ -221,8 +215,7 @@ void process_tx_queue() {
             while (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1) != 3) {
             }  // wait for message to transmit
 
-            if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &TxHeader, TxData) !=
-                HAL_OK) {
+            if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &TxHeader, TxData) != HAL_OK) {
                 break;
             }
 #else
@@ -244,8 +237,7 @@ void process_tx_queue() {
             while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) != 3) {
             }  // wait for message to transmit
 
-            if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) !=
-                HAL_OK) {
+            if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) != HAL_OK) {
                 break;
             }
 #endif
@@ -262,14 +254,8 @@ void cyphal_push(
     const size_t payload_size,
     const void* const payload
 ) {
-    int32_t push_state = canardTxPush(
-        &queue,
-        &canard,
-        tx_deadline_usec,
-        metadata,
-        payload_size,
-        payload
-    );
+    int32_t push_state =
+        canardTxPush(&queue, &canard, tx_deadline_usec, metadata, payload_size, payload);
     if (push_state < 0) {
         Error_Handler();
     }
@@ -293,14 +279,8 @@ void process_rx_frame(const CAN_RxHeaderTypeDef* RxHeader, uint8_t RxData[]) {
 
     CanardRxTransfer transfer = {.payload = NULL};
     CanardRxSubscription* subscription = NULL;
-    const int8_t accept_result = canardRxAccept(
-        (CanardInstance* const)&canard,
-        micros(),
-        &rxf,
-        0,
-        &transfer,
-        &subscription
-    );
+    const int8_t accept_result =
+        canardRxAccept((CanardInstance* const)&canard, micros(), &rxf, 0, &transfer, &subscription);
     if (accept_result != 1) {
         goto exit;
     }
@@ -322,16 +302,16 @@ void cyphal_subscribe(
     CanardPortID port_id,
     size_t extent,
     CanardRxSubscription* const subscription,
-    void(*callback)(CanardRxTransfer*)
+    void (*callback)(CanardRxTransfer*)
 ) {
     if (canardRxSubscribe(
-        (CanardInstance* const)&canard,
-        CanardTransferKindRequest,
-        port_id,
-        extent,
-        CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
-        subscription
-    ) != 1) {
+            (CanardInstance* const)&canard,
+            CanardTransferKindRequest,
+            port_id,
+            extent,
+            CANARD_DEFAULT_TRANSFER_ID_TIMEOUT_USEC,
+            subscription
+        ) != 1) {
         Error_Handler();
     }
     subscription->user_reference = (void*)callback;

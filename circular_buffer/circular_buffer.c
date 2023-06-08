@@ -11,9 +11,7 @@
 
 CircularBuffer* make_buffer(size_t capacity) {
     CircularBuffer* buffer;
-    CRITICAL_SECTION({
-        buffer = malloc(sizeof(CircularBuffer) + sizeof(int32_t) * capacity);
-    })
+    CRITICAL_SECTION({ buffer = malloc(sizeof(CircularBuffer) + sizeof(int32_t) * capacity); })
     if (buffer == NULL) {
         return NULL;
     }

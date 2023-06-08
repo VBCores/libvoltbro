@@ -30,13 +30,7 @@ extern "C" {
 #include "encoders/generic.h"
 #include "utils.h"
 
-typedef enum {
-    CALIBRATE,
-    ROTATE,
-    CURRENT,
-    SIX_STEP_CONTROL,
-    NO_ACTION
-} ControlMode;
+typedef enum { CALIBRATE, ROTATE, CURRENT, SIX_STEP_CONTROL, NO_ACTION } ControlMode;
 
 typedef struct {
     bool is_on;
@@ -96,7 +90,6 @@ typedef struct {
     float I_C_offset;
 } InverterState;
 
-
 void motor_control(
     DriverControl* controller,
     DriveInfo* drive,
@@ -109,29 +102,19 @@ void motor_control(
 // process_ADC.c
 void process_ADC(InverterState* inverter, const uint32_t ADC_buf[]);
 
-#define CONTROL_FUNC_ARGS\
-    DriverControl* controller,\
-    DriveInfo* drive,\
-    InverterState* inverter,\
-    uint16_t* dqa,\
-    uint16_t* dqb,\
-    uint16_t* dqc
+#define CONTROL_FUNC_ARGS                                                                \
+    DriverControl *controller, DriveInfo *drive, InverterState *inverter, uint16_t *dqa, \
+        uint16_t *dqb, uint16_t *dqc
 // six_step_control.c
-void six_step_control(
-    GEncoder* encoder,
-    CONTROL_FUNC_ARGS
-);
+void six_step_control(GEncoder* encoder, CONTROL_FUNC_ARGS);
 // simple_modes.c
 void current_mode(CONTROL_FUNC_ARGS);
 void rotate_mode(CONTROL_FUNC_ARGS);
 
 #define pi2 (2.0f * PI)
 
-force_inline float
-calc_elec_theta(float encoder_data, uint16_t pulses_per_pair) {
-    float theta =
-        pi2 * (mfmod(encoder_data, pulses_per_pair) / (float)pulses_per_pair) -
-        PI;
+force_inline float calc_elec_theta(float encoder_data, uint16_t pulses_per_pair) {
+    float theta = pi2 * (mfmod(encoder_data, pulses_per_pair) / (float)pulses_per_pair) - PI;
     if (theta < 0) {
         theta += pi2;
     }
