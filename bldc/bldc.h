@@ -40,6 +40,7 @@ typedef enum {
 
 typedef struct {
     bool is_on;
+    bool is_stalling;
 
     uint16_t pulses_per_pair;
 
@@ -51,10 +52,10 @@ typedef struct {
     // motor physical properties
     const uint32_t gear_ratio;
     const uint32_t ppairs;
-    const float torque_const;
-    const float speed_const;
-    const float max_current;
-    const float stall_current;
+    float torque_const;
+    float speed_const;
+    float max_current;
+    float stall_current;
 } DriveInfo;
 
 typedef struct {
@@ -70,6 +71,11 @@ typedef struct {
 
     float velocity_target;
     float current_limit;
+
+    float speed_mult;
+    float I_mult;
+    float PWM_mult;
+    uint16_t max_PWM_per_s;
 
     const double T;  // encoder value sampling period, s
 

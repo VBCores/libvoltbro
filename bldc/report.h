@@ -9,9 +9,7 @@
 #define VBLIB_BLDC_REPORT_H_
 
 typedef struct {
-    float elec_speed;
-    float elec_predicted;
-    float Vd;
+    uint16_t PWM;
 } BLDCReport;
 
 #define REPORT_STATE

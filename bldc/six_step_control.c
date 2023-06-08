@@ -60,7 +60,7 @@ int16_t get_control(
     int16_t pwm
 );
 
-#define USE_CONTROL
+//#define USE_CONTROL
 #ifdef DEBUG
 int16_t PWM;
 uint32_t ticks_since_sample_abs = 0;
@@ -134,7 +134,7 @@ void six_step_control(
         ticks_since_sample_abs += 1;
     }
 #else
-    PWM = 500;
+    PWM = 100;
 #endif
 
     // TODO: fix?
@@ -144,6 +144,9 @@ void six_step_control(
         actual_pwm = -actual_pwm;
     }
     flow_direction(first, second, DQs, actual_pwm);
+#ifdef REPORT_STATE
+    bldc_report.PWM = abs(actual_pwm);
+#endif
 }
 
 #ifdef DEBUG
@@ -216,10 +219,6 @@ force_inline float get_current(InverterState* inverter, DrivePhase current_relat
     return -*(&inverter->I_A + current_relative);
 }
 
-// TODO: make configurable
-#define MAX_PWM_PER_S 1200.0f
-#define I_CONST 0.5
-#define PWM_CONST 150
 #define MAX_PWM 1999
 #ifdef DEBUG
 double control_signal;
@@ -258,20 +257,20 @@ int16_t get_control(
     speed_error = controller->velocity_target - driver->shaft_velocity;
     S_signal = regulation(&controller->velocity_regulator, speed_error, passed_time_abs);
 
-    I_error = S_signal * driver->torque_const;
+    I_error = (S_signal * controller->speed_mult) * driver->torque_const;
     I_signal = regulation(&controller->current_regulator, I_error, passed_time_abs);
 
     float I_now = get_current(inverter, current_relative);
-    float I_target = I_now + I_signal * I_CONST;
+    float I_target = I_now + I_signal * controller->I_mult;
     if (fabs(I_target) > controller->current_limit) {
         I_target = copysign(controller->current_limit, I_target);
     }
 
     new_I_signal = I_target - I_now;
-    control_signal = new_I_signal * PWM_CONST;
+    control_signal = new_I_signal * controller->PWM_mult;
 
     // PWM guards
-    const float max_change_per_sample = MAX_PWM_PER_S * controller->sampling_interval;
+    const float max_change_per_sample = controller->max_PWM_per_s * controller->sampling_interval;
     if (fabs(control_signal) > max_change_per_sample) {
         control_signal = copysign(max_change_per_sample, control_signal);
     }
@@ -279,9 +278,6 @@ int16_t get_control(
     if (abs(pwm) > MAX_PWM) {
         pwm = copysign(MAX_PWM, pwm);
     }
-#ifdef REPORT_STATE
-    // TODO
-#endif
     return pwm;
 }
 
@@ -289,7 +285,6 @@ int16_t get_control(
 double cur_time = 0;
 float user_current_limit = -1;
 double stall_start_time = 0;
-bool is_stalling = false;
 #endif
 void detect_stall(DriveInfo* drive, DriverControl* controller, double passed_time_abs) {
 #ifndef DEBUG
@@ -305,18 +300,18 @@ void detect_stall(DriveInfo* drive, DriverControl* controller, double passed_tim
     }
 
     if (fabsf(drive->shaft_velocity) < controller->stall_tolerance) {
-        if (!is_stalling) {
+        if (!drive->is_stalling) {
             user_current_limit = controller->current_limit;
-            is_stalling = true;
+            drive->is_stalling = true;
             stall_start_time = cur_time;
         }
     }
     else {
         controller->current_limit = user_current_limit;
-        is_stalling = false;
+        drive->is_stalling = false;
     }
 
-    if (is_stalling) {
+    if (drive->is_stalling) {
         if ( (cur_time - stall_start_time) > controller->stall_timeout) {
             controller->current_limit = drive->stall_current;
         }

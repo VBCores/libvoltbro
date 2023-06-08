@@ -50,7 +50,7 @@ void rotate_mode(
     float sf = arm_sin_f32(calib_elec_angle);
     float cf = arm_cos_f32(calib_elec_angle);
 
-    const float const_Vd = -0.2f;
+    const float const_Vd = -0.3f;
     const float const_Vq = 0.0f;
 
     float DVA, DVB, DVC;

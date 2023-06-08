@@ -204,10 +204,10 @@ void process_tx_queue() {
             TxHeader.TxFrameType = FDCAN_DATA_FRAME;
             TxHeader.DataLength =
                 CanardFDCANLengthToDLC[ti->frame.payload_size];
-            TxHeader.ErrorStateIndicator = FDCAN_ESI_PASSIVE;
-            TxHeader.BitRateSwitch = FDCAN_BRS_ON;
+            TxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+            TxHeader.BitRateSwitch = FDCAN_BRS_OFF;
             TxHeader.FDFormat = FDCAN_FD_CAN;
-            TxHeader.TxEventFifoControl = FDCAN_STORE_TX_EVENTS;
+            TxHeader.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
             TxHeader.MessageMarker = 0x0;
 
             uint8_t TxData[64];
