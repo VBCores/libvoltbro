@@ -59,7 +59,7 @@ int16_t get_control(
     int16_t pwm
 );
 
-// #define USE_CONTROL
+#define USE_CONTROL
 #ifdef DEBUG
 int16_t PWM;
 uint32_t ticks_since_sample_abs = 0;
@@ -269,45 +269,53 @@ int16_t get_control(
     if (fabs(control_signal) > max_change_per_sample) {
         control_signal = copysign(max_change_per_sample, control_signal);
     }
-    pwm += (int16_t)control_signal;
+
+    // amplifying minimal signal
+    int16_t pwm_diff = (int16_t)control_signal;
+    if (pwm_diff == 0 && fabs(control_signal) >= 0.01) {
+        pwm_diff = (int16_t)copysign(1.0, control_signal);
+    }
+
+    pwm += pwm_diff;
     if (abs(pwm) > MAX_PWM) {
         pwm = copysign(MAX_PWM, pwm);
     }
     return pwm;
 }
 
+void quit_stall(DriveInfo* drive, DriverControl* controller) {
+    controller->current_limit = controller->user_current_limit;
+    drive->is_stalling = false;
+}
+
 #ifdef DEBUG
 double cur_time = 0;
-float user_current_limit = -1;
 double stall_start_time = 0;
 #endif
 void detect_stall(DriveInfo* drive, DriverControl* controller, double passed_time_abs) {
 #ifndef DEBUG
     static double cur_time = 0;
-    static float user_current_limit = -1;
     static double stall_start_time = 0;
     static bool is_stalling = false;
 #endif
     cur_time += passed_time_abs;
 
-    if (user_current_limit < 0) {
-        user_current_limit = controller->current_limit;
-    }
-
     if (fabsf(drive->shaft_velocity) < controller->stall_tolerance) {
         if (!drive->is_stalling) {
-            user_current_limit = controller->current_limit;
             drive->is_stalling = true;
+            // drive->is_bursting = true;
             stall_start_time = cur_time;
         }
     } else {
-        controller->current_limit = user_current_limit;
-        drive->is_stalling = false;
+        quit_stall(drive, controller);
     }
 
     if (drive->is_stalling) {
+        // TODO: burst
+        // if (drive->is_bursting) {
         if ((cur_time - stall_start_time) > controller->stall_timeout) {
             controller->current_limit = drive->stall_current;
+            // drive->is_bursting = false;
         }
     }
 }

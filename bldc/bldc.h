@@ -65,6 +65,7 @@ typedef struct {
 
     float velocity_target;
     float current_limit;
+    float user_current_limit;
 
     float speed_mult;
     float I_mult;
@@ -107,6 +108,7 @@ void process_ADC(InverterState* inverter, const uint32_t ADC_buf[]);
         uint16_t *dqb, uint16_t *dqc
 // six_step_control.c
 void six_step_control(GEncoder* encoder, CONTROL_FUNC_ARGS);
+void quit_stall(DriveInfo* drive, DriverControl* controller);
 // simple_modes.c
 void current_mode(CONTROL_FUNC_ARGS);
 void rotate_mode(CONTROL_FUNC_ARGS);

@@ -56,8 +56,11 @@ void memFree(CanardInstance* const ins, void* const pointer) {
 void init_cyphal(CanardNodeID NodeId) {
     canard = canardInit(&memAllocate, &memFree);
     canard.node_id = NodeId;
-
+#if defined(STM32G474xx) || defined(STM32_G)
+    queue = canardTxInit(200, CANARD_MTU_CAN_FD);
+#else
     queue = canardTxInit(200, CANARD_MTU_CAN_CLASSIC);
+#endif
 }
 
 void send_heartbeat(uint8_t health, uint8_t mode) {
@@ -199,7 +202,7 @@ void process_tx_queue() {
             TxHeader.TxFrameType = FDCAN_DATA_FRAME;
             TxHeader.DataLength = CanardFDCANLengthToDLC[ti->frame.payload_size];
             TxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-            TxHeader.BitRateSwitch = FDCAN_BRS_OFF;
+            TxHeader.BitRateSwitch = FDCAN_BRS_ON;
             TxHeader.FDFormat = FDCAN_FD_CAN;
             TxHeader.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
             TxHeader.MessageMarker = 0x0;
