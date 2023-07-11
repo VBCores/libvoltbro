@@ -133,7 +133,7 @@ void six_step_control(
         ticks_since_sample_abs += 1;
     }
 #else
-    PWM = 100;
+    PWM = 1000;
 #endif
 
     // TODO: fix?
@@ -253,9 +253,18 @@ int16_t get_control(
     S_signal = regulation(&controller->velocity_regulator, speed_error, passed_time_abs);
 
     I_error = (S_signal * controller->speed_mult) * driver->torque_const;
-    I_signal = regulation(&controller->current_regulator, I_error, passed_time_abs);
 
     float I_now = get_current(inverter, current_relative);
+    float I_out;
+    if (fabsf(I_error) > 0.01) {
+        I_out = I_error;
+    }
+    else {
+        I_out = (-I_now)/120;
+    }
+
+    I_signal = regulation(&controller->current_regulator, I_out, passed_time_abs);
+
     float I_target = I_now + I_signal * controller->I_mult;
     if (fabs(I_target) > controller->current_limit) {
         I_target = copysign(controller->current_limit, I_target);
