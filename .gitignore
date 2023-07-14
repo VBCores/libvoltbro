@@ -10,7 +10,8 @@
 default.profraw
 
 ### General
-
+.idea/
+.vscode/
 .DS_Store
 .AppleDouble
 .LSOverride
