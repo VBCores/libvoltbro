@@ -1,1 +1,0 @@
-add_library(o1heap OBJECT o1heap.c)

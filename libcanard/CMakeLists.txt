@@ -1,1 +1,0 @@
-add_library(libcanard OBJECT canard.c)

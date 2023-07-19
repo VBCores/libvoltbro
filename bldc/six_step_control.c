@@ -6,6 +6,8 @@
  */
 #include "bldc.h"
 
+#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED)
+
 #include "arm_math.h"
 
 #include "encoders/AS5048A/AS5048A.h"
@@ -328,3 +330,5 @@ void detect_stall(DriveInfo* drive, DriverControl* controller, double passed_tim
         }
     }
 }
+
+#endif

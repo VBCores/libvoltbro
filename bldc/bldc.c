@@ -7,7 +7,7 @@
 
 #include "bldc.h"
 
-#ifdef HAL_TIM_MODULE_ENABLED
+#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED)
 
 #ifdef DEBUG
 static uint16_t DQA = 0;
