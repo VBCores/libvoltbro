@@ -7,8 +7,6 @@
 
 #include "bldc.h"
 
-#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED)
-
 #include "math/math_ops.h"
 #include "math/transform.h"
 
@@ -64,5 +62,3 @@ void rotate_mode(
     *dqb = 1000 + (int16_t)(1000.0f * DVB);
     *dqc = 1000 + (int16_t)(1000.0f * DVC);
 }
-
-#endif

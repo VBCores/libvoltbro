@@ -6,8 +6,6 @@
  */
 #include "bldc.h"
 
-#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED)
-
 #include "arm_math.h"
 
 #include "encoders/AS5048A/AS5048A.h"
@@ -63,7 +61,7 @@ int16_t get_control(
 
 #define USE_CONTROL
 #ifdef DEBUG
-int16_t PWM;
+int16_t PWM = 100;
 uint32_t ticks_since_sample_abs = 0;
 DrivePhase first;
 DrivePhase second;
@@ -135,7 +133,7 @@ void six_step_control(
         ticks_since_sample_abs += 1;
     }
 #else
-    PWM = 1000;
+    //PWM = 1900;
 #endif
 
     // TODO: fix?
@@ -216,7 +214,7 @@ force_inline float get_current(InverterState* inverter, DrivePhase current_relat
     return -*(&inverter->I_A + current_relative);
 }
 
-#define MAX_PWM 1999
+#define MAX_PWM 1900
 #ifdef DEBUG
 double control_signal;
 float speed_error;
@@ -330,5 +328,3 @@ void detect_stall(DriveInfo* drive, DriverControl* controller, double passed_tim
         }
     }
 }
-
-#endif

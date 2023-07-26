@@ -40,6 +40,7 @@ void make_pid_config_reserved(PIDConfig* dest, double p_gain, double i_gain, dou
 double regulation(PIDConfig* config, double error, double dt) {
     if (fabs(error) <= config->tolerance) {
         config->signal = 0;
+        config->integral_error = 0;
         return 0;
     }
 
