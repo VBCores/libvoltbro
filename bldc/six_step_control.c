@@ -1,3 +1,4 @@
+#include <sys/cdefs.h>
 /*
  * six_step_control.c
  *
@@ -13,7 +14,7 @@
 
 #include "report.h"
 
-extern void Error_Handler();
+_Noreturn extern void Error_Handler();
 extern AS5048AConfig as5048a;
 
 BLDCReport bldc_report;

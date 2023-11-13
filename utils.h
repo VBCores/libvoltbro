@@ -38,8 +38,6 @@ extern "C" {
 void blink_notify_led(int blinks, GPIO_TypeDef* GPIOx, pin GPIO_Pin);
 void blink_notify(int blinks);
 
-O1HeapInstance* heapInit(void** memoryArena, size_t heapSize);
-
 uint32_t dac_value(double dac_voltage);
 
 #ifdef __cplusplus
