@@ -21,6 +21,7 @@ void motor_control(
     InverterState* inverter,
     const uint32_t ADC_buf[],
     GEncoder* encoder,
+    GEncoder* speed_encoder,
     TIM_HandleTypeDef* htim
 ) {
 #ifdef DEBUG
@@ -43,7 +44,10 @@ void motor_control(
             rotate_mode(controller, driver, inverter, &DQA, &DQB, &DQC);
             break;
         case SIX_STEP_CONTROL:
-            six_step_control(encoder, controller, driver, inverter, &DQA, &DQB, &DQC);
+            six_step_control(encoder, speed_encoder, controller, driver, inverter, &DQA, &DQB, &DQC);
+            break;
+        case HALL_SIX_STEP_CONTROL:
+            hall_six_step_control((IncrementalEncoder*)encoder, controller, driver, inverter, &DQA, &DQB, &DQC);
             break;
         case CALIBRATE:
             // TODO

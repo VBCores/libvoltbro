@@ -23,17 +23,6 @@ void blink_notify(int blinks) {
     }
 }
 
-O1HeapInstance* heapInit(void** memoryArena, size_t heapSize) {
-    void* mem;
-    CRITICAL_SECTION({ mem = malloc(heapSize); })
-    if (mem == NULL) {
-        return NULL;
-    }
-    size_t offset_mismatch = (size_t)mem % O1HEAP_ALIGNMENT;
-    *memoryArena = mem + offset_mismatch;
-    return o1heapInit(*memoryArena, heapSize - offset_mismatch);
-}
-
 uint32_t dac_value(double dac_voltage) {
     return floor(4095 * dac_voltage / 3.3);
 }

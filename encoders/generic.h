@@ -14,11 +14,13 @@ extern "C" {
 typedef struct GEncoder {
     bool inverted;
     bool last_error;
+    bool is_electrical;
     const uint16_t CPR;
     uint16_t value;
     uint16_t elec_offset;
     // encoder interface
     uint16_t (*get_angle)(struct GEncoder*);
+    uint64_t revolutions;  // number of ELECTRICAL turns
 } GEncoder;
 
 #ifdef __cplusplus

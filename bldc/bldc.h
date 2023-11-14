@@ -28,9 +28,10 @@ extern "C" {
 
 #include "controllers/pid.h"
 #include "encoders/generic.h"
+#include "encoders/incremental_encoder/encoder.h"
 #include "utils.h"
 
-typedef enum { CALIBRATE, ROTATE, CURRENT, SIX_STEP_CONTROL, NO_ACTION } ControlMode;
+typedef enum { CALIBRATE, ROTATE, CURRENT, SIX_STEP_CONTROL, HALL_SIX_STEP_CONTROL, NO_ACTION } ControlMode;
 
 typedef struct {
     bool is_on;
@@ -40,16 +41,20 @@ typedef struct {
 
     float shaft_angle;     // device's output shaft mechanical angle, rad
     float shaft_velocity;  // device's output shaft angular velocity, rad/s
-    int32_t rotor_turns;   // motor's rotor rotation number, int
+    int32_t rotor_turns;   // motor's rotor revolutions number, int
     float elec_theta;      // motor's electrical angle, electrical rad
 
     // motor physical properties
     const uint32_t gear_ratio;
     const uint32_t ppairs;
-    float torque_const;
-    float speed_const;
+    const float torque_const;
+    const float speed_const;
     float max_current;
-    float stall_current;
+    const float stall_current;
+    const float supply_voltage;
+    const int32_t full_pwm;
+
+    const pin L_PINS[3];
 } DriveInfo;
 
 typedef struct {
@@ -68,14 +73,14 @@ typedef struct {
     float user_current_limit;
 
     float speed_mult;
-    float I_mult;
+    float electric_mult;
     float PWM_mult;
     uint16_t max_PWM_per_s;
 
-    const double T;  // encoder value sampling period, s
+    const double T;  // control loop period, sec
 
     PIDConfig velocity_regulator;
-    PIDConfig current_regulator;
+    PIDConfig electric_regulator;
 } DriverControl;
 
 typedef struct {
@@ -97,18 +102,30 @@ void motor_control(
     InverterState* inverter,
     const uint32_t ADC_buf[],
     GEncoder* encoder,
+    GEncoder* speed_encoder,
     TIM_HandleTypeDef* htim
 );
 
+typedef enum { PHASE_A = 0, PHASE_B = 1, PHASE_C = 2 } DrivePhase;
+
 // process_ADC.c
 void process_ADC(InverterState* inverter, const uint32_t ADC_buf[]);
+
+// common.c
+void step_to_phases(EncoderStep step, DrivePhase* first, DrivePhase* second);
+void calculate_angles(DriveInfo* drive, DriverControl* controller, GEncoder* speed_encoder);
+void calculate_speed(DriveInfo* drive, DriverControl* controller, float dt);
+void detect_stall(DriveInfo* drive, DriverControl* controller, double passed_time_abs);
+void quit_stall(DriveInfo* drive, DriverControl* controller);
 
 #define CONTROL_FUNC_ARGS                                                                \
     DriverControl *controller, DriveInfo *drive, InverterState *inverter, uint16_t *dqa, \
         uint16_t *dqb, uint16_t *dqc
 // six_step_control.c
-void six_step_control(GEncoder* encoder, CONTROL_FUNC_ARGS);
-void quit_stall(DriveInfo* drive, DriverControl* controller);
+void six_step_control(GEncoder* encoder, GEncoder* speed_encoder, CONTROL_FUNC_ARGS);
+// hall_six_step_control.c
+void hall_six_step_control_callback(IncrementalEncoder* encoder, DriverControl *controller, DriveInfo *drive, InverterState *inverter, float dt);
+void hall_six_step_control(IncrementalEncoder* encoder, CONTROL_FUNC_ARGS);
 // simple_modes.c
 void current_mode(CONTROL_FUNC_ARGS);
 void rotate_mode(CONTROL_FUNC_ARGS);
@@ -126,6 +143,30 @@ force_inline float calc_elec_theta(float encoder_data, uint16_t pulses_per_pair)
 force_inline float lp_filter(float beta, float yprev, float input) {
     return (float)((1.0f - beta) * yprev + beta * input);
 }
+
+// inline to avoid copying
+force_inline void flow_direction(DriveInfo* drive, DrivePhase from, DrivePhase to, uint16_t* DQs[3], int16_t pwm) {
+    uint16_t actual_pwm = abs(pwm);
+    if (pwm < 0) {
+        DrivePhase tmp = to;
+        to = from;
+        from = tmp;
+    }
+    DrivePhase off;
+    if (PHASE_A != from && PHASE_A != to)
+        off = PHASE_A;
+    if (PHASE_B != from && PHASE_B != to)
+        off = PHASE_B;
+    if (PHASE_C != from && PHASE_C != to)
+        off = PHASE_C;
+    HAL_GPIO_WritePin(GPIOB, drive->L_PINS[off], GPIO_PIN_RESET);
+
+    HAL_GPIO_WritePin(GPIOB, drive->L_PINS[from], GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOB, drive->L_PINS[to], GPIO_PIN_SET);
+    *DQs[to] = 0;
+    *DQs[from] = actual_pwm;
+}
+
 
 #ifdef __cplusplus
 }

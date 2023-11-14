@@ -25,10 +25,12 @@ void make_AS5048A_config_reserved(
         .common =
             {.CPR = CPR,
              .inverted = inverted,
+             .is_electrical = false,
              .value = 0,
              .last_error = false,
              .elec_offset = elec_offset,
-             .get_angle = (uint16_t(*)(GEncoder*)) & AS5048A_get_angle},
+             .get_angle = (uint16_t(*)(GEncoder*)) & AS5048A_get_angle,
+             .revolutions = 0},
         .spi = spi,
         .SPI_SS = SPI_SS,
         .SPI_SS_GPIOx = SPI_SS_GPIOx,
