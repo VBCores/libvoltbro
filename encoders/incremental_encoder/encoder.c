@@ -115,7 +115,7 @@ bool handle_encoder_channel(IncrementalEncoder* encoder, pin channel) {
         return false;
     }
 #ifdef TRUSTED_EXTI
-    *(&encoder->state_1 + activated_pin) = !*(&encoder->state_1 + activated_pin);  // TODO: test
+    *(&encoder->state_1 + activated_pin) = !*(&encoder->state_1 + activated_pin);
 #else
     bool old_state_1 = encoder->state_1;
     bool old_state_2 = encoder->state_2;

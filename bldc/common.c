@@ -109,7 +109,7 @@ void calculate_speed(DriveInfo* drive, DriverControl* controller, float dt) {
     }
 
 #ifndef DEBUG
-    float travel
+    float travel;
 #endif
     travel = drive->shaft_angle - prev_angle;
     if (travel < -PI) {

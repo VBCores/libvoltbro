@@ -59,18 +59,19 @@ void six_step_control(
     uint16_t* DQs[3] = {DQA, DQB, DQC};
     step_to_phases(inc_encoder->step, &first, &second);
 
-    //speed_encoder->value = speed_encoder->get_angle(speed_encoder);
+    speed_encoder->value = speed_encoder->get_angle(speed_encoder);
     calculate_angles(drive, controller, speed_encoder);
+
     double passed_time_abs = ticks_since_sample_abs * controller->T;
     if (passed_time_abs > controller->sampling_interval) {
-        //calculate_speed(drive, controller, -1);
-        //detect_stall(drive, controller, passed_time_abs);
-        //PWM = get_control(drive, controller, inverter, passed_time_abs, first, PWM);
+        calculate_speed(drive, controller, -1);
+        detect_stall(drive, controller, passed_time_abs);
+        PWM = get_control(drive, controller, inverter, passed_time_abs, first, PWM);
 
         ticks_since_sample_abs = 0;
     } else {
         ticks_since_sample_abs += 1;
-    }/**/
+    }
 #ifndef USE_CONTROL
     PWM = 200;
 #endif
@@ -92,20 +93,20 @@ force_inline float get_current(InverterState* inverter, DrivePhase current_relat
 }
 
 #ifdef DEBUG
-double control_signal;
-float speed_error;
-float I_error;
-double I_signal;
-double new_I_signal;
-double S_signal;
+static double control_signal;
+static float speed_error;
+static float I_error;
+static double I_signal;
+static double new_I_signal;
+static double S_signal;
 #endif
 int16_t get_control(
-    DriveInfo* driver,
-    DriverControl* controller,
-    InverterState* inverter,
-    double passed_time_abs,
-    DrivePhase current_relative,
-    int16_t pwm
+        DriveInfo* driver,
+        DriverControl* controller,
+        InverterState* inverter,
+        double passed_time_abs,
+        DrivePhase current_relative,
+        int16_t pwm
 ) {
 #ifndef DEBUG
     double control_signal;
@@ -119,9 +120,9 @@ int16_t get_control(
      * Как это работает:
      * 1) Получаем сигнал для скорости S_sig. Считаем полученный сигнал требованием к увеличению момента, ньютон-метры
      * 2) Из него получаем изменение тока: I_err = S_sig * Kv (Нм * (А / Нм) = А)
-     * 3) Получаем сигнал для тока I_sig
+     * 3) Получаем сигнал для тока I_sig (безразмерный сигнал)
      * 4) I_target = max(I_lim, I_now + I_sig);
-     * 5) new_I_sig = I_target - I_now
+     * 5) new_I_sig = I_target - I_now (безразмерный сигнал, хотя казалось бы амперы)
      * 6) изменение PWM_new = PWM_prev + new_I_sig * coeff
      */
 
@@ -156,7 +157,7 @@ int16_t get_control(
     }
 
     // amplifying minimal signal
-    int16_t pwm_diff = (int16_t)control_signal;
+    int16_t pwm_diff = (int16_t)control_signal * controller->PWM_mult;
     if (pwm_diff == 0 && fabs(control_signal) >= 0.01) {
         pwm_diff = (int16_t)copysign(1.0, control_signal);
     }
