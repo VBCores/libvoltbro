@@ -38,6 +38,21 @@ void blink_notify(int blinks);
 
 uint32_t dac_value(double dac_voltage);
 
+__STATIC_INLINE void DWT_Init(void)
+{
+    // разрешаем использовать счётчик
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    // запускаем счётчик
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+}
+
+__STATIC_INLINE void delay_micros(uint32_t micros)
+{
+    uint32_t micros_count_tic =  micros * (SystemCoreClock / 1000000U);
+    DWT->CYCCNT = 0U;
+    while(DWT->CYCCNT < micros_count_tic);
+}
+
 #ifdef __cplusplus
 }
 #endif

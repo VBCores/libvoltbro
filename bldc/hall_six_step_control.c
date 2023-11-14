@@ -9,9 +9,12 @@
 static int16_t local_pwm = 100;
 
 void hall_six_step_control_callback(IncrementalEncoder* encoder, DriverControl *controller, DriveInfo *drive, InverterState *inverter, float dt) {
+    // VERY roughly
+    calculate_angles(drive, controller, (GEncoder*)encoder);
     calculate_speed(drive, controller, dt);
 }
 
+//#define USE_CONTROL
 void hall_six_step_control(
     IncrementalEncoder* encoder,
     DriverControl* controller,
@@ -33,7 +36,10 @@ uint16_t* DQs[3] = {DQA, DQB, DQC};
     step_to_phases(encoder->step, &first, &second);
 
     calculate_angles(drive, controller, (GEncoder*)encoder);
+
+    delay_micros(5);
 #ifndef USE_CONTROL
+    // for testing
     local_pwm = 200;
 #endif
 
