@@ -64,7 +64,7 @@ void rotate_mode(
 }
 
 
-#define SEQUENCE_LEN 6*15
+#define SEQUENCE_LEN 6*4
 EncoderStep flows[SEQUENCE_LEN];
 EncoderStep hall_sequence_array[SEQUENCE_LEN];
 
@@ -81,11 +81,12 @@ void hall_sequence(
     static uint32_t last_time_ms = 0;
     static EncoderStep target_step = 1;
     static size_t i = 0;
+    static uint32_t calibration_pwm = 200;
     if (is_finished) {
         return;
     }
     uint32_t current_time_ms = HAL_GetTick();
-    if (current_time_ms - last_time_ms > 150) {
+    if (current_time_ms - last_time_ms > 1000) {
         if (last_time_ms == 0) {
             last_time_ms = current_time_ms;
             flows[i] = target_step;
@@ -97,6 +98,7 @@ void hall_sequence(
                 // Breakpoint location
                 is_finished = true;
                 *dqa = *dqb = *dqc = 0;
+                calibration_pwm = 0;
             }
             target_step += 1;
             if (target_step > AC) {
@@ -110,5 +112,5 @@ void hall_sequence(
 
     DrivePhase first, second;
     step_to_phases(target_step, &first, &second);
-    flow_direction(driver, first, second, DQs, 200);
+    flow_direction(driver, first, second, DQs, calibration_pwm);
 }

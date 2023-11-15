@@ -40,11 +40,11 @@ handle_hall_data:
     //delay_micros(5);
 #ifndef USE_CONTROL
     // for testing
-    local_pwm = 200;
+    local_pwm = 100;
 #endif
 
     int16_t actual_pwm = local_pwm;
-    if (!encoder->common.inverted) {
+    if (encoder->common.inverted) {
         // due to current flow in reverse direction to voltage
         actual_pwm = -actual_pwm;
     }

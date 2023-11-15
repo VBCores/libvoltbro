@@ -30,7 +30,8 @@ void make_incr_encoder_reserved(
     GPIO_TypeDef* pin_3_gpiox,
     pin pin_1,
     pin pin_2,
-    pin pin_3
+    pin pin_3,
+    EncoderStep* sequence
 ) {
     IncrementalEncoder tmp_encoder = {
         .common =
@@ -55,6 +56,7 @@ void make_incr_encoder_reserved(
         .increment = inverted ? -1 : 1,
         .direction = 0,
         .last_activated = -1,
+        .sequence = *sequence
     };
     tmp_encoder.step = get_encoder_step(&tmp_encoder);
 
@@ -69,7 +71,8 @@ IncrementalEncoder* make_incr_encoder(
     GPIO_TypeDef* pin_3_gpiox,
     pin pin_1,
     pin pin_2,
-    pin pin_3
+    pin pin_3,
+    EncoderStep* sequence
 ) {
     IncrementalEncoder* encoder;
     CRITICAL_SECTION({ encoder = malloc(sizeof(IncrementalEncoder)); })
@@ -86,7 +89,8 @@ IncrementalEncoder* make_incr_encoder(
         pin_3_gpiox,
         pin_1,
         pin_2,
-        pin_3
+        pin_3,
+        sequence
     );
 
     return encoder;
@@ -138,8 +142,19 @@ bool handle_encoder_channel(IncrementalEncoder* encoder, pin channel) {
 #endif
 
     int32_t value = (int32_t)encoder->common.value;
-    if ((activated_pin == encoder->last_activated + 1) ||
-        (encoder->last_activated == 2 && activated_pin == 0)) {
+    bool positive_direction = false;
+    switch (encoder->last_activated) {
+        case 0:
+            positive_direction = activated_pin == 2;
+            break;
+        case 1:
+            positive_direction = activated_pin == 0;
+            break;
+        case 2:
+            positive_direction = activated_pin == 1;
+            break;
+    }
+    if (positive_direction) {
         value += encoder->increment;
         encoder->direction = 1 * encoder->increment;
     } else {

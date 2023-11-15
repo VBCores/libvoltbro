@@ -27,12 +27,12 @@ extern "C" {
 #endif
 
 typedef enum {
-    CA = 1,
-    AB = 2,
-    CB = 3,
-    BC = 4,
-    BA = 5,
-    AC = 6,
+    CA = 4,
+    AB = 1,
+    CB = 5,
+    BC = 2,
+    BA = 6,
+    AC = 3,
 } EncoderStep;
 
 typedef struct IncrementalEncoder {
@@ -54,6 +54,7 @@ typedef struct IncrementalEncoder {
     const pin pin_1;
     const pin pin_2;
     const pin pin_3;
+    EncoderStep sequence[6];
 } IncrementalEncoder;
 
 IncrementalEncoder* make_incr_encoder(
@@ -64,7 +65,8 @@ IncrementalEncoder* make_incr_encoder(
     GPIO_TypeDef* pin_3_gpiox,
     pin pin_1,
     pin pin_2,
-    pin pin_3
+    pin pin_3,
+    EncoderStep* sequence
 );
 
 void make_incr_encoder_reserved(
@@ -76,9 +78,23 @@ void make_incr_encoder_reserved(
     GPIO_TypeDef* pin_3_gpiox,
     pin pin_1,
     pin pin_2,
-    pin pin_3
+    pin pin_3,
+    EncoderStep* sequence
 );
 bool handle_encoder_channel(IncrementalEncoder* encoder, pin channel);
+
+force_inline EncoderStep get_energized_phase(IncrementalEncoder* encoder, EncoderStep step) {
+    size_t step_index = 0;
+    for (; step_index < 6; step_index++) {
+        if (encoder->sequence[step_index] == step) break;
+    }
+    size_t perpendicular_phase = step_index + 2;
+    if (perpendicular_phase >= 6) {
+        perpendicular_phase -= 6;
+    }
+    return encoder->sequence[perpendicular_phase];
+}
+
 
 #ifdef __cplusplus
 }

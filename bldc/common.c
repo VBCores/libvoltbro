@@ -92,14 +92,7 @@ void calculate_angles(DriveInfo* drive, DriverControl* controller, GEncoder* spe
     drive->shaft_angle = pi2 * full_circle_part;
 }
 
-#ifdef DEBUG
-float travel;
-float dt_;
-#endif
 void calculate_speed(DriveInfo* drive, DriverControl* controller, float dt) {
-#ifdef DEBUG
-    dt_ = dt;
-#endif
     static float prev_velocity = 0;
     static float prev_angle = -1;
 
@@ -108,10 +101,7 @@ void calculate_speed(DriveInfo* drive, DriverControl* controller, float dt) {
         return;
     }
 
-#ifndef DEBUG
-    float travel
-#endif
-    travel = drive->shaft_angle - prev_angle;
+    float travel = drive->shaft_angle - prev_angle;
     if (travel < -PI) {
         travel += pi2;
     } else if (travel > PI) {
