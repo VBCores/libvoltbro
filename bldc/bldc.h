@@ -31,7 +31,7 @@ extern "C" {
 #include "encoders/incremental_encoder/encoder.h"
 #include "utils.h"
 
-typedef enum { CALIBRATE, ROTATE, CURRENT, SIX_STEP_CONTROL, HALL_SIX_STEP_CONTROL, NO_ACTION } ControlMode;
+typedef enum { HALL_SEQUENCE, ROTATE, CURRENT, SIX_STEP_CONTROL, HALL_SIX_STEP_CONTROL, NO_ACTION } ControlMode;
 
 typedef struct {
     bool is_on;
@@ -129,6 +129,7 @@ void hall_six_step_control(IncrementalEncoder* encoder, CONTROL_FUNC_ARGS);
 // simple_modes.c
 void current_mode(CONTROL_FUNC_ARGS);
 void rotate_mode(CONTROL_FUNC_ARGS);
+void hall_sequence(IncrementalEncoder* encoder, CONTROL_FUNC_ARGS);
 
 #define pi2 (2.0f * PI)
 

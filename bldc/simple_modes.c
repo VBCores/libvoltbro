@@ -62,3 +62,53 @@ void rotate_mode(
     *dqb = 1000 + (int16_t)(1000.0f * DVB);
     *dqc = 1000 + (int16_t)(1000.0f * DVC);
 }
+
+
+#define SEQUENCE_LEN 6*15
+EncoderStep flows[SEQUENCE_LEN];
+EncoderStep hall_sequence_array[SEQUENCE_LEN];
+
+void hall_sequence(
+    IncrementalEncoder* encoder,
+    DriverControl* controller,
+    DriveInfo* driver,
+    InverterState* inverter,
+    uint16_t* dqa,
+    uint16_t* dqb,
+    uint16_t* dqc
+) {
+    static bool is_finished = false;
+    static uint32_t last_time_ms = 0;
+    static EncoderStep target_step = 1;
+    static size_t i = 0;
+    if (is_finished) {
+        return;
+    }
+    uint32_t current_time_ms = HAL_GetTick();
+    if (current_time_ms - last_time_ms > 150) {
+        if (last_time_ms == 0) {
+            last_time_ms = current_time_ms;
+            flows[i] = target_step;
+        }
+        else {
+            hall_sequence_array[i] = encoder->step;
+            i++;
+            if (i >= SEQUENCE_LEN) {
+                // Breakpoint location
+                is_finished = true;
+                *dqa = *dqb = *dqc = 0;
+            }
+            target_step += 1;
+            if (target_step > AC) {
+                target_step = CA;
+            }
+            flows[i] = target_step;
+            last_time_ms = current_time_ms;
+        }
+    }
+    uint16_t* DQs[3] = {dqa, dqb, dqc};
+
+    DrivePhase first, second;
+    step_to_phases(target_step, &first, &second);
+    flow_direction(driver, first, second, DQs, 200);
+}

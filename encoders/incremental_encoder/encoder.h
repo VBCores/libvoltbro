@@ -38,6 +38,8 @@ typedef enum {
 typedef struct IncrementalEncoder {
     // Shared
     GEncoder common;
+    // Hardware stuff, valid only for HALL_SIX_STEP mode, ignore otherwise
+    bool newer_interrupt;
     // State machine
     int state_1;
     int state_2;

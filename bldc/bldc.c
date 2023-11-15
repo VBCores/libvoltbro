@@ -49,8 +49,9 @@ void motor_control(
         case HALL_SIX_STEP_CONTROL:
             hall_six_step_control((IncrementalEncoder*)encoder, controller, driver, inverter, &DQA, &DQB, &DQC);
             break;
-        case CALIBRATE:
-            // TODO
+        case HALL_SEQUENCE:
+            hall_sequence((IncrementalEncoder*) encoder, controller, driver, inverter, &DQA, &DQB, &DQC);
+            break;
         case NO_ACTION:
             HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);
             HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);

@@ -31,13 +31,13 @@ void hall_six_step_control(
         return;
     }
 
-uint16_t* DQs[3] = {DQA, DQB, DQC};
+    uint16_t* DQs[3] = {DQA, DQB, DQC};
     DrivePhase first, second;
+handle_hall_data:
     step_to_phases(encoder->step, &first, &second);
+    encoder->newer_interrupt = false;
 
-    calculate_angles(drive, controller, (GEncoder*)encoder);
-
-    delay_micros(5);
+    //delay_micros(5);
 #ifndef USE_CONTROL
     // for testing
     local_pwm = 200;
@@ -47,6 +47,9 @@ uint16_t* DQs[3] = {DQA, DQB, DQC};
     if (!encoder->common.inverted) {
         // due to current flow in reverse direction to voltage
         actual_pwm = -actual_pwm;
+    }
+    if(encoder->newer_interrupt) {
+        goto handle_hall_data;
     }
     flow_direction(drive, first, second, DQs, actual_pwm);
 }
