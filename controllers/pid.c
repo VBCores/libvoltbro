@@ -43,6 +43,12 @@ double regulation(PIDConfig* config, double error, double dt) {
         config->integral_error = 0;
         return 0;
     }
+    static int prev_err_sign = 1;
+    int err_sign = error < 0 ? -1 : 1;
+    if (err_sign != prev_err_sign) {
+        config->integral_error = 0;
+    }
+    prev_err_sign = err_sign;
 
     double error_diff = fabs(error) - fabs(config->prev_error);
     config->prev_error = error;

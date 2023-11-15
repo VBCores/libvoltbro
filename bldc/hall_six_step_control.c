@@ -6,15 +6,24 @@
  */
 #include "bldc.h"
 
-static int16_t local_pwm = 100;
+int16_t local_pwm = 100;
 
+const float outlier_threshold = pi2 * 10;
 void hall_six_step_control_callback(IncrementalEncoder* encoder, DriverControl *controller, DriveInfo *drive, InverterState *inverter, float dt) {
     // VERY roughly
     calculate_angles(drive, controller, (GEncoder*)encoder);
+    float prev_velocity = drive->shaft_velocity;
     calculate_speed(drive, controller, dt);
+    if (fabsf(drive->shaft_velocity) > outlier_threshold) {
+        drive->shaft_velocity = prev_velocity;
+    }
 }
 
-//#define USE_CONTROL
+#define USE_CONTROL
+#ifdef DEBUG
+float speed_error;
+double signal;
+#endif
 void hall_six_step_control(
     IncrementalEncoder* encoder,
     DriverControl* controller,
@@ -37,15 +46,48 @@ handle_hall_data:
     step_to_phases(encoder->step, &first, &second);
     encoder->newer_interrupt = false;
 
-    //delay_micros(5);
+    static uint32_t ticks_since_sample_abs = 0;
+    double passed_time_abs = ticks_since_sample_abs * controller->T;
+    if (passed_time_abs > controller->sampling_interval) {
+#ifndef DEBUG
+        float speed_error;
+        double signal;
+#endif
+        speed_error = controller->velocity_target - drive->shaft_velocity;
+        signal = regulation(&controller->velocity_regulator, speed_error, passed_time_abs);
+
+        // PWM guards
+        const float max_change_per_sample = controller->max_PWM_per_s * controller->sampling_interval;
+        if (fabs(signal) > max_change_per_sample) {
+            signal = copysign(max_change_per_sample, signal);
+        }
+
+        // amplifying minimal signal
+        int16_t pwm_diff = (int16_t)signal * controller->PWM_mult;
+        if (pwm_diff == 0 && fabs(signal) >= 0.01) {
+            pwm_diff = (int16_t)copysign(1.0, signal);
+        }
+
+        int16_t new_pwm = local_pwm;
+        new_pwm += pwm_diff;
+        const uint32_t MAX_PWM = drive->full_pwm * 0.95f;
+        if (abs(new_pwm) > MAX_PWM) {
+            new_pwm = copysign(MAX_PWM, new_pwm);
+        }
+
+        local_pwm = new_pwm;
+
+        ticks_since_sample_abs = 0;
+    } else {
+        ticks_since_sample_abs += 1;
+    }
+
 #ifndef USE_CONTROL
-    // for testing
     local_pwm = 100;
 #endif
 
     int16_t actual_pwm = local_pwm;
     if (encoder->common.inverted) {
-        // due to current flow in reverse direction to voltage
         actual_pwm = -actual_pwm;
     }
     if(encoder->newer_interrupt) {

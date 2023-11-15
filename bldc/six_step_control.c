@@ -92,12 +92,12 @@ force_inline float get_current(InverterState* inverter, DrivePhase current_relat
 }
 
 #ifdef DEBUG
-double control_signal;
-float speed_error;
-float I_error;
-double I_signal;
-double new_I_signal;
-double S_signal;
+static double control_signal;
+static float speed_error;
+static float I_error;
+static double I_signal;
+static double new_I_signal;
+static double S_signal;
 #endif
 int16_t get_control(
     DriveInfo* driver,
