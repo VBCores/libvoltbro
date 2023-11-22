@@ -5,8 +5,8 @@
  *      Author: Igor Beschastnov
  */
 
-#ifndef VBLIB_INCREMENTAL_ENCODER_ENCODER_H_
-#define VBLIB_INCREMENTAL_ENCODER_ENCODER_H_
+#ifndef VBLIB_HALL_SENSOR_ENCODER_H_
+#define VBLIB_HALL_SENSOR_ENCODER_H_
 
 #if defined(STM32G474xx) || defined(STM32_G)
 #include "stm32g4xx_hal.h"
@@ -35,7 +35,7 @@ typedef enum {
     AC = 3,
 } EncoderStep;
 
-typedef struct IncrementalEncoder {
+typedef struct {
     // Shared
     GEncoder common;
     // Hardware stuff, valid only for HALL_SIX_STEP mode, ignore otherwise
@@ -55,10 +55,9 @@ typedef struct IncrementalEncoder {
     const pin pin_2;
     const pin pin_3;
     EncoderStep sequence[6];
-} IncrementalEncoder;
+} HallSensor;
 
-IncrementalEncoder* make_incr_encoder(
-    uint16_t CPR,
+HallSensor* make_hall_sensor(
     bool inverted,
     GPIO_TypeDef* pin_1_gpiox,
     GPIO_TypeDef* pin_2_gpiox,
@@ -69,9 +68,8 @@ IncrementalEncoder* make_incr_encoder(
     EncoderStep* sequence
 );
 
-void make_incr_encoder_reserved(
-    IncrementalEncoder* dest,
-    uint16_t CPR,
+void make_hall_sensor_reserved(
+    HallSensor* dest,
     bool inverted,
     GPIO_TypeDef* pin_1_gpiox,
     GPIO_TypeDef* pin_2_gpiox,
@@ -81,22 +79,9 @@ void make_incr_encoder_reserved(
     pin pin_3,
     EncoderStep* sequence
 );
-bool handle_encoder_channel(IncrementalEncoder* encoder, pin channel);
-
-force_inline EncoderStep get_energized_phase(IncrementalEncoder* encoder, EncoderStep step) {
-    size_t step_index = 0;
-    for (; step_index < 6; step_index++) {
-        if (encoder->sequence[step_index] == step) break;
-    }
-    size_t perpendicular_phase = step_index + 2;
-    if (perpendicular_phase >= 6) {
-        perpendicular_phase -= 6;
-    }
-    return encoder->sequence[perpendicular_phase];
-}
-
+bool handle_hall_channel(HallSensor* encoder, pin channel);
 
 #ifdef __cplusplus
 }
 #endif
-#endif /* VBLIB_INCREMENTAL_ENCODER_ENCODER_H_ */
+#endif /* VBLIB_HALL_SENSOR_ENCODER_H_ */

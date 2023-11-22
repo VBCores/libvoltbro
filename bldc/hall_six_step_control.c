@@ -9,7 +9,7 @@
 int16_t local_pwm = 100;
 
 const float outlier_threshold = pi2 * 10;
-void hall_six_step_control_callback(IncrementalEncoder* encoder, DriverControl *controller, DriveInfo *drive, InverterState *inverter, float dt) {
+void hall_six_step_control_callback(HallSensor* encoder, DriverControl *controller, DriveInfo *drive, InverterState *inverter, float dt) {
     // VERY roughly
     calculate_angles(drive, controller, (GEncoder*)encoder);
     float prev_velocity = drive->shaft_velocity;
@@ -25,7 +25,7 @@ float speed_error;
 double signal;
 #endif
 void hall_six_step_control(
-    IncrementalEncoder* encoder,
+    HallSensor* encoder,
     DriverControl* controller,
     DriveInfo* drive,
     InverterState* inverter,

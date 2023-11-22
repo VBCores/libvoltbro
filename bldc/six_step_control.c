@@ -9,13 +9,11 @@
 #include "arm_math.h"
 
 #include "encoders/AS5048A/AS5048A.h"
-#include "encoders/incremental_encoder/encoder.h"
+#include "encoders/hall_sensor/encoder.h"
 
 #include "report.h"
 
 extern void Error_Handler();
-
-BLDCReport bldc_report;
 
 int16_t get_control(
     DriveInfo* driver,
@@ -26,7 +24,7 @@ int16_t get_control(
     int16_t pwm
 );
 
-//#define USE_CONTROL
+#define USE_CONTROL
 #ifdef DEBUG
 int16_t PWM = 100;
 uint32_t ticks_since_sample_abs = 0;
@@ -34,7 +32,7 @@ DrivePhase first;
 DrivePhase second;
 #endif
 void six_step_control(
-    GEncoder* encoder,
+    HallSensor* sensor,
     GEncoder* speed_encoder,
     DriverControl* controller,
     DriveInfo* drive,
@@ -47,8 +45,6 @@ void six_step_control(
         return;
     }
 
-    IncrementalEncoder* inc_encoder = (IncrementalEncoder*)encoder;
-
 #ifndef DEBUG
     static uint16_t PWM;
     static uint32_t ticks_since_sample_abs = 0;
@@ -57,15 +53,15 @@ void six_step_control(
 #endif
 
     uint16_t* DQs[3] = {DQA, DQB, DQC};
-    step_to_phases(inc_encoder->step, &first, &second);
+    step_to_phases(sensor->step, &first, &second);
 
     //speed_encoder->value = speed_encoder->get_angle(speed_encoder);
     calculate_angles(drive, controller, speed_encoder);
     double passed_time_abs = ticks_since_sample_abs * controller->T;
     if (passed_time_abs > controller->sampling_interval) {
-        //calculate_speed(drive, controller, -1);
-        //detect_stall(drive, controller, passed_time_abs);
-        //PWM = get_control(drive, controller, inverter, passed_time_abs, first, PWM);
+        calculate_speed(drive, controller, -1);
+        detect_stall(drive, controller, passed_time_abs);
+        PWM = get_control(drive, controller, inverter, passed_time_abs, first, PWM);
 
         ticks_since_sample_abs = 0;
     } else {
@@ -82,9 +78,8 @@ void six_step_control(
         actual_pwm = -actual_pwm;
     }
     flow_direction(drive, first, second, DQs, actual_pwm);
-#ifdef REPORT_STATE
-    bldc_report.PWM = abs(actual_pwm);
-#endif
+
+    write_report(abs(actual_pwm));
 }
 
 force_inline float get_current(InverterState* inverter, DrivePhase current_relative) {

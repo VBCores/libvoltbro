@@ -9,7 +9,7 @@
 #include "arm_math.h"
 
 #include "encoders/AS5048A/AS5048A.h"
-#include "encoders/incremental_encoder/encoder.h"
+#include "encoders/hall_sensor/encoder.h"
 
 extern void Error_Handler();
 

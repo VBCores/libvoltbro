@@ -20,7 +20,7 @@ void motor_control(
     DriveInfo* driver,
     InverterState* inverter,
     const uint32_t ADC_buf[],
-    GEncoder* encoder,
+    HallSensor* sensor,
     GEncoder* speed_encoder,
     TIM_HandleTypeDef* htim
 ) {
@@ -44,13 +44,13 @@ void motor_control(
             rotate_mode(controller, driver, inverter, &DQA, &DQB, &DQC);
             break;
         case SIX_STEP_CONTROL:
-            six_step_control(encoder, speed_encoder, controller, driver, inverter, &DQA, &DQB, &DQC);
+            six_step_control(sensor, speed_encoder, controller, driver, inverter, &DQA, &DQB, &DQC);
             break;
         case HALL_SIX_STEP_CONTROL:
-            hall_six_step_control((IncrementalEncoder*)encoder, controller, driver, inverter, &DQA, &DQB, &DQC);
+            hall_six_step_control(sensor, controller, driver, inverter, &DQA, &DQB, &DQC);
             break;
         case HALL_SEQUENCE:
-            hall_sequence((IncrementalEncoder*) encoder, controller, driver, inverter, &DQA, &DQB, &DQC);
+            hall_sequence(sensor, controller, driver, inverter, &DQA, &DQB, &DQC);
             break;
         case NO_ACTION:
             HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);
@@ -64,7 +64,7 @@ void motor_control(
     __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, DQB);
     __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, DQC);
 
-    encoder->value = encoder->get_angle(encoder);
+    speed_encoder->value = speed_encoder->get_angle(speed_encoder);
 }
 
 #endif

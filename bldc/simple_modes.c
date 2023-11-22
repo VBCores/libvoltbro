@@ -69,7 +69,7 @@ EncoderStep flows[SEQUENCE_LEN];
 EncoderStep hall_sequence_array[SEQUENCE_LEN];
 
 void hall_sequence(
-    IncrementalEncoder* encoder,
+    HallSensor* encoder,
     DriverControl* controller,
     DriveInfo* driver,
     InverterState* inverter,

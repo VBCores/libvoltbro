@@ -28,7 +28,7 @@ extern "C" {
 
 #include "controllers/pid.h"
 #include "encoders/generic.h"
-#include "encoders/incremental_encoder/encoder.h"
+#include "encoders/hall_sensor/encoder.h"
 #include "utils.h"
 
 typedef enum { HALL_SEQUENCE, ROTATE, CURRENT, SIX_STEP_CONTROL, HALL_SIX_STEP_CONTROL, NO_ACTION } ControlMode;
@@ -50,7 +50,7 @@ typedef struct {
     const float torque_const;
     const float speed_const;
     float max_current;
-    const float stall_current;
+    float stall_current;
     const float supply_voltage;
     const int32_t full_pwm;
 
@@ -101,7 +101,7 @@ void motor_control(
     DriveInfo* drive,
     InverterState* inverter,
     const uint32_t ADC_buf[],
-    GEncoder* encoder,
+    HallSensor* sensor,
     GEncoder* speed_encoder,
     TIM_HandleTypeDef* htim
 );
@@ -122,14 +122,14 @@ void quit_stall(DriveInfo* drive, DriverControl* controller);
     DriverControl *controller, DriveInfo *drive, InverterState *inverter, uint16_t *dqa, \
         uint16_t *dqb, uint16_t *dqc
 // six_step_control.c
-void six_step_control(GEncoder* encoder, GEncoder* speed_encoder, CONTROL_FUNC_ARGS);
+void six_step_control(HallSensor* sensor, GEncoder* speed_encoder, CONTROL_FUNC_ARGS);
 // hall_six_step_control.c
-void hall_six_step_control_callback(IncrementalEncoder* encoder, DriverControl *controller, DriveInfo *drive, InverterState *inverter, float dt);
-void hall_six_step_control(IncrementalEncoder* encoder, CONTROL_FUNC_ARGS);
+void hall_six_step_control_callback(HallSensor* sensor, DriverControl *controller, DriveInfo *drive, InverterState *inverter, float dt);
+void hall_six_step_control(HallSensor* sensor, CONTROL_FUNC_ARGS);
 // simple_modes.c
 void current_mode(CONTROL_FUNC_ARGS);
 void rotate_mode(CONTROL_FUNC_ARGS);
-void hall_sequence(IncrementalEncoder* encoder, CONTROL_FUNC_ARGS);
+void hall_sequence(HallSensor* encoder, CONTROL_FUNC_ARGS);
 
 #define pi2 (2.0f * PI)
 

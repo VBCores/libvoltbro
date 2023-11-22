@@ -9,7 +9,7 @@
 #include "string.h"
 #include "utils.h"
 
-force_inline EncoderStep get_encoder_step(IncrementalEncoder* encoder) {
+force_inline EncoderStep get_encoder_step(HallSensor* encoder) {
     return encoder->state_1 + encoder->state_2 * 2 + encoder->state_3 * 4;
 }
 
@@ -21,23 +21,22 @@ uint16_t nop(GEncoder* encoder) {
     return encoder->value;
 }
 
-void make_incr_encoder_reserved(
-    IncrementalEncoder* dest,
-    uint16_t CPR,
-    bool inverted,
-    GPIO_TypeDef* pin_1_gpiox,
-    GPIO_TypeDef* pin_2_gpiox,
-    GPIO_TypeDef* pin_3_gpiox,
-    pin pin_1,
-    pin pin_2,
-    pin pin_3,
-    EncoderStep* sequence
+void make_hall_sensor_reserved(
+        HallSensor* dest,
+        bool inverted,
+        GPIO_TypeDef* pin_1_gpiox,
+        GPIO_TypeDef* pin_2_gpiox,
+        GPIO_TypeDef* pin_3_gpiox,
+        pin pin_1,
+        pin pin_2,
+        pin pin_3,
+        EncoderStep* sequence
 ) {
-    IncrementalEncoder tmp_encoder = {
+    HallSensor tmp_encoder = {
         .common =
             {.inverted = inverted,
              .is_electrical = true,
-             .CPR = CPR,
+             .CPR = 6,
              .value = 0,
              .last_error = false,
              .elec_offset = 0,
@@ -60,11 +59,10 @@ void make_incr_encoder_reserved(
     };
     tmp_encoder.step = get_encoder_step(&tmp_encoder);
 
-    memcpy(dest, &tmp_encoder, sizeof(IncrementalEncoder));
+    memcpy(dest, &tmp_encoder, sizeof(HallSensor));
 }
 
-IncrementalEncoder* make_incr_encoder(
-    uint16_t CPR,
+HallSensor* make_hall_sensor(
     bool inverted,
     GPIO_TypeDef* pin_1_gpiox,
     GPIO_TypeDef* pin_2_gpiox,
@@ -74,15 +72,14 @@ IncrementalEncoder* make_incr_encoder(
     pin pin_3,
     EncoderStep* sequence
 ) {
-    IncrementalEncoder* encoder;
-    CRITICAL_SECTION({ encoder = malloc(sizeof(IncrementalEncoder)); })
+    HallSensor* encoder;
+    CRITICAL_SECTION({ encoder = malloc(sizeof(HallSensor)); })
     if (encoder == NULL) {
         return NULL;
     }
 
-    make_incr_encoder_reserved(
+    make_hall_sensor_reserved(
         encoder,
-        CPR,
         inverted,
         pin_1_gpiox,
         pin_2_gpiox,
@@ -100,7 +97,7 @@ IncrementalEncoder* make_incr_encoder(
 uint8_t activated_pin;
 #endif
 //#define TRUSTED_EXTI
-bool handle_encoder_channel(IncrementalEncoder* encoder, pin channel) {
+bool handle_hall_channel(HallSensor* encoder, pin channel) {
 #ifndef DEBUG
     uint8_t activated_pin;
 #endif

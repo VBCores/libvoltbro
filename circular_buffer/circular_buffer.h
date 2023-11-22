@@ -5,8 +5,8 @@
  *      Author: Igor Beschastnov
  */
 
-#ifndef VBLIB_INCREMENTAL_ENCODER_ENCODER_H_
-#define VBLIB_INCREMENTAL_ENCODER_ENCODER_H_
+#ifndef VBLIB_CIRCULAR_BUFFER_CIRCULAR_BUFFER_H_
+#define VBLIB_CIRCULAR_BUFFER_CIRCULAR_BUFFER_H_
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -39,4 +39,4 @@ set_to_buffer(CircularBuffer* buffer, size_t index, int32_t value) {
 #ifdef __cplusplus
 }
 #endif
-#endif /* VBLIB_INCREMENTAL_ENCODER_ENCODER_H_ */
+#endif /* VBLIB_CIRCULAR_BUFFER_CIRCULAR_BUFFER_H_ */
