@@ -22,7 +22,7 @@ void hall_six_step_control_callback(HallSensor* encoder, DriverControl *controll
 #define USE_CONTROL
 #ifdef DEBUG
 float speed_error;
-double signal;
+double control_signal;
 #endif
 void hall_six_step_control(
     HallSensor* encoder,
@@ -54,18 +54,18 @@ handle_hall_data:
         double signal;
 #endif
         speed_error = controller->velocity_target - drive->shaft_velocity;
-        signal = regulation(&controller->velocity_regulator, speed_error, passed_time_abs);
+        control_signal = regulation(&controller->velocity_regulator, speed_error, passed_time_abs);
 
         // PWM guards
         const float max_change_per_sample = controller->max_PWM_per_s * controller->sampling_interval;
-        if (fabs(signal) > max_change_per_sample) {
-            signal = copysign(max_change_per_sample, signal);
+        if (fabs(control_signal) > max_change_per_sample) {
+            control_signal = copysign(max_change_per_sample, control_signal);
         }
 
         // amplifying minimal signal
-        int16_t pwm_diff = (int16_t)signal * controller->PWM_mult;
-        if (pwm_diff == 0 && fabs(signal) >= 0.01) {
-            pwm_diff = (int16_t)copysign(1.0, signal);
+        int16_t pwm_diff = (int16_t)control_signal * controller->PWM_mult;
+        if (pwm_diff == 0 && fabs(control_signal) >= 0.01) {
+            pwm_diff = (int16_t)copysign(1.0, control_signal);
         }
 
         int16_t new_pwm = local_pwm;

@@ -23,4 +23,8 @@ typedef struct {
 BLDCReport* get_report();
 void write_report(uint16_t PWM);
 
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* VBLIB_BLDC_REPORT_H_ */

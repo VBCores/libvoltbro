@@ -64,7 +64,9 @@ void motor_control(
     __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, DQB);
     __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, DQC);
 
-    speed_encoder->value = speed_encoder->get_angle(speed_encoder);
+    if (speed_encoder != NULL) {
+        speed_encoder->value = speed_encoder->get_angle(speed_encoder);
+    }
 }
 
 #endif
