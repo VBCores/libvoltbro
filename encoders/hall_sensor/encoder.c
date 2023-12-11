@@ -94,7 +94,7 @@ HallSensor* make_hall_sensor(
 }
 
 #ifdef DEBUG
-uint8_t activated_pin;
+int8_t activated_pin;
 #endif
 //#define TRUSTED_EXTI
 bool handle_hall_channel(HallSensor* encoder, pin channel) {
@@ -112,10 +112,6 @@ bool handle_hall_channel(HallSensor* encoder, pin channel) {
     }
 #endif
 
-    if (encoder->last_activated == -1) {
-        encoder->last_activated = (int8_t)activated_pin;
-        return false;
-    }
 #ifdef TRUSTED_EXTI
     *(&encoder->state_1 + activated_pin) = !*(&encoder->state_1 + activated_pin);
 #else
@@ -136,7 +132,16 @@ bool handle_hall_channel(HallSensor* encoder, pin channel) {
     else if (old_state_3 != encoder->state_3) {
         activated_pin = 2;
     }
+    else {
+        activated_pin = -1;
+    }
 #endif
+
+    if (encoder->last_activated == -1 || activated_pin == -1) {
+        encoder->last_activated = activated_pin;
+        encoder->step = get_encoder_step(encoder);
+        return false;
+    }
 
     int32_t value = (int32_t)encoder->common.value;
     bool positive_direction = false;
@@ -152,12 +157,11 @@ bool handle_hall_channel(HallSensor* encoder, pin channel) {
             break;
     }
     if (positive_direction) {
-        value += encoder->increment;
-        encoder->direction = 1 * encoder->increment;
+        encoder->direction = 1;
     } else {
-        value -= encoder->increment;
-        encoder->direction = -1 * encoder->increment;
+        encoder->direction = -1;
     }
+    value += encoder->increment * encoder->direction;
     encoder->last_activated = (int8_t)activated_pin;
 
     if (value >= encoder->common.CPR) {

@@ -82,10 +82,6 @@ void six_step_control(
     write_report(abs(actual_pwm));
 }
 
-force_inline float get_current(InverterState* inverter, DrivePhase current_relative) {
-    return -*(&inverter->I_A + current_relative);
-}
-
 #ifdef DEBUG
 static double control_signal;
 static float speed_error;

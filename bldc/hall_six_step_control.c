@@ -22,7 +22,9 @@ void hall_six_step_control_callback(HallSensor* encoder, DriverControl *controll
 #define USE_CONTROL
 #ifdef DEBUG
 float speed_error;
+float V_signal;
 double control_signal;
+float I_input_sig;
 #endif
 void hall_six_step_control(
     HallSensor* encoder,

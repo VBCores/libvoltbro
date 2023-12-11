@@ -32,6 +32,7 @@ extern "C" {
 #include "utils.h"
 
 typedef enum { HALL_SEQUENCE, ROTATE, CURRENT, SIX_STEP_CONTROL, HALL_SIX_STEP_CONTROL, NO_ACTION } ControlMode;
+typedef enum { SET_VELOCITY, SET_VOLTAGE } SetPointType;
 
 typedef struct {
     bool is_on;
@@ -61,6 +62,7 @@ typedef struct {
     bool predict_change;
     bool detect_stall;
     ControlMode mode;
+    SetPointType point_type;
 
     float encoder_filtering;
     float speed_filtering;
@@ -69,6 +71,7 @@ typedef struct {
     float stall_tolerance;
 
     float velocity_target;
+    float voltage_target;
     float current_limit;
     float user_current_limit;
 
@@ -132,6 +135,10 @@ void rotate_mode(CONTROL_FUNC_ARGS);
 void hall_sequence(HallSensor* encoder, CONTROL_FUNC_ARGS);
 
 #define pi2 (2.0f * PI)
+
+force_inline float get_current(InverterState* inverter, DrivePhase current_relative) {
+    return -*(&inverter->I_A + current_relative);
+}
 
 force_inline float calc_elec_theta(float encoder_data, uint16_t pulses_per_pair) {
     float theta = pi2 * (mfmod(encoder_data, pulses_per_pair) / (float)pulses_per_pair) - PI;
