@@ -22,9 +22,7 @@ void hall_six_step_control_callback(HallSensor* encoder, DriverControl *controll
 #define USE_CONTROL
 #ifdef DEBUG
 float speed_error;
-float V_signal;
 double control_signal;
-float I_input_sig;
 #endif
 void hall_six_step_control(
     HallSensor* encoder,
@@ -55,28 +53,40 @@ handle_hall_data:
         float speed_error;
         double signal;
 #endif
-        speed_error = controller->velocity_target - drive->shaft_velocity;
-        control_signal = regulation(&controller->velocity_regulator, speed_error, passed_time_abs);
-
-        // PWM guards
-        const float max_change_per_sample = controller->max_PWM_per_s * controller->sampling_interval;
-        if (fabs(control_signal) > max_change_per_sample) {
-            control_signal = copysign(max_change_per_sample, control_signal);
-        }
-
-        // amplifying minimal signal
-        int16_t pwm_diff = (int16_t)control_signal * controller->PWM_mult;
-        if (pwm_diff == 0 && fabs(control_signal) >= 0.01) {
-            pwm_diff = (int16_t)copysign(1.0, control_signal);
-        }
-
         int16_t new_pwm = local_pwm;
-        new_pwm += pwm_diff;
+
+        if (controller->point_type == SET_VELOCITY) {
+            float current = fabsf(get_current(inverter, first));
+            float I_err = current - drive->max_current;
+            if (I_err > 0) {
+                control_signal = -I_err * controller->electric_mult;
+            }
+            else {
+                speed_error = controller->velocity_target - drive->shaft_velocity;
+                control_signal = regulation(&controller->velocity_regulator, speed_error, passed_time_abs);
+            }
+            // PWM guards
+            const float max_change_per_sample = controller->max_PWM_per_s * controller->sampling_interval;
+            if (fabs(control_signal) > max_change_per_sample) {
+                control_signal = copysign(max_change_per_sample, control_signal);
+            }
+
+            // amplifying minimal signal
+            int16_t pwm_diff = (int16_t)control_signal * controller->PWM_mult;
+            if (pwm_diff == 0 && fabs(control_signal) >= 0.01) {
+                pwm_diff = (int16_t)copysign(1.0, control_signal);
+            }
+
+            new_pwm += pwm_diff;
+        }
+        else if (controller->point_type == SET_VOLTAGE) {
+            new_pwm = drive->full_pwm / drive->supply_voltage * controller->voltage_target;
+        }
+
         const uint32_t MAX_PWM = drive->full_pwm * 0.95f;
         if (abs(new_pwm) > MAX_PWM) {
             new_pwm = copysign(MAX_PWM, new_pwm);
         }
-
         local_pwm = new_pwm;
 
         ticks_since_sample_abs = 0;
