@@ -14,7 +14,10 @@
 #include "stm32f4xx_hal.h"
 #endif
 
-#ifdef HAL_TIM_MODULE_ENABLED
+#if defined(HAL_TIM_MODULE_ENABLED) && defined(ARM_MATH)
+#define BLDC_ENABLED
+#endif
+#ifdef BLDC_ENABLED
 
 #include "math/math_ops.h"
 

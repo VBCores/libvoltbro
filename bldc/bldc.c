@@ -7,7 +7,7 @@
 
 #include "bldc.h"
 
-#ifdef HAL_TIM_MODULE_ENABLED
+#ifdef BLDC_ENABLED
 
 #ifdef DEBUG
 static uint16_t DQA = 0;

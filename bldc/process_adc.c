@@ -7,6 +7,8 @@
 
 #include "bldc.h"
 
+#ifdef BLDC_ENABLED
+
 void process_ADC(InverterState* inverter, const uint32_t ADC_buf[]) {
     const float shunt_res = 0.045f;  // 0.045 Ohm shunt resistance
     const float op_amp_gain = 1.0f;  // current sensor gain
@@ -18,3 +20,5 @@ void process_ADC(InverterState* inverter, const uint32_t ADC_buf[]) {
                     (shunt_res * op_amp_gain);
     inverter->busV = 12.0f * 3.3f * ADC_buf[0] / 4096.0f / 16.0f;  // drivers input voltage
 }
+
+#endif
