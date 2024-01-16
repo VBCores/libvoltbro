@@ -229,6 +229,7 @@ HAL_StatusTypeDef AS5600_Init(AS5600_TypeDef *a) {
         status = HAL_ERROR;
         return status;
     }
+    HAL_Delay(10);
     /* Check magnet status */
     if (AS5600_GetMagnetStatus(a, &mag_status) != HAL_OK) {
         status = HAL_ERROR;
@@ -576,6 +577,8 @@ uint32_t const i2c_xfer(
             timeout
         );
     }
+
+    bus_free_delay();
 
     if ((HAL_OK == result) && (is_rx_operation)) {
         // RX operation

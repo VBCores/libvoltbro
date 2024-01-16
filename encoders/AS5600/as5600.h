@@ -208,5 +208,13 @@ HAL_StatusTypeDef AS5600_GetMagnetStatus(AS5600_TypeDef *const a,
 HAL_StatusTypeDef AS5600_GetAGCSetting(AS5600_TypeDef *const a,
                                        uint8_t *const agc);
 
+// roughly 100ns
+__attribute__((always_inline, optimize("O0")) ) static inline void bus_free_delay(void) {
+    uint8_t cycles = 16;
+    while (cycles--) {
+        __asm__("nop");
+    }
+}
+
 #endif
 #endif /* AS5600_H_ */

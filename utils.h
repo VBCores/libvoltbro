@@ -31,6 +31,20 @@ extern pin NotifyLED_PIN;
     __disable_irq();                        \
     code_blk __set_PRIMASK(primask_bit);
 
+#define HAL_IMPORTANT(command) \
+    if ((command) != HAL_OK) { \
+        blink_notify(5);       \
+        Error_Handler();       \
+    }
+
+#define MILLIS_COUNTER(counter) static uint32_t counter = 0;
+
+#define EACH_N_MILLIS(N, counter, code_blk) \
+    if ((tick - (counter)) >= (N)) {        \
+        (counter) = tick;                   \
+        code_blk                            \
+    }
+
 #ifdef __cplusplus
 extern "C" {
 #endif
