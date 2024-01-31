@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "utils.h"
+#include "dsp/low_pass_filter.hpp"
 
 class GenericEncoder {
 protected:
@@ -18,7 +19,7 @@ public:
 
     GenericEncoder(encoder_data CPR, bool is_inverted = false): CPR(CPR), is_inverted(is_inverted) {};
 
-    virtual void update_value() = 0;
+    virtual void update_value(const LowPassFilter& filter) = 0;
 
     inline void incr_revolutions() {
         revolutions++;
@@ -29,7 +30,7 @@ public:
     virtual inline encoder_data get_value() const {
         return value;
     }
-    inline uint16_t get_revolutions() {
+    inline int16_t get_revolutions() const{
         return revolutions;
     }
 

@@ -8,13 +8,22 @@ struct CommonDriverConfig {
     uint8_t gear_ratio = 1;
 };
 
-float calculate_angles(
-    const CommonDriverConfig& drive,
-    const LowPassFilter& filter,
-    GenericEncoder& speed_encoder
-);
-float calculate_speed(
-    const CommonDriverConfig& drive,
-    const LowPassFilter& filter,
-    float dt
-);
+class AbstractMotor {
+protected:
+    const LowPassFilter angle_filter;
+    const LowPassFilter speed_filter;
+public:
+    AbstractMotor(
+        float angle_filter = 1,
+        float speed_filter = 1
+    ):
+        angle_filter(angle_filter),
+        speed_filter(speed_filter)
+    {}
+    float calculate_angle(
+        const CommonDriverConfig& drive,
+        GenericEncoder& speed_encoder
+    ) const;
+    float calculate_speed(const float shaft_angle, const float dt) const;
+};
+

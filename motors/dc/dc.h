@@ -30,15 +30,14 @@ struct DCDriverConfig {
     const CommonDriverConfig common;
 };
 
-class DCMotorController {
+class DCMotorController: public AbstractMotor {
 private:
     const DCDriverConfig config;
     PIDRegulator regulator;
-    const LowPassFilter angle_filter;
-    const LowPassFilter speed_filter;
 
-    bool is_on = false;
-    float speed = 0;
+    bool _is_on = false;
+    mutable float angle = 0;
+    mutable float speed = 0;
     float target_speed = 0;
     float Ipeak = 0;
 public:
@@ -48,10 +47,9 @@ public:
         float angle_filter = 1,
         float speed_filter = 1
     ):
+        AbstractMotor(angle_filter, speed_filter),
         config(driver),
-        regulator(std::forward<PIDConfig>(config)),
-        angle_filter(angle_filter),
-        speed_filter(speed_filter)
+        regulator(std::forward<PIDConfig>(config))
     {};
 
     HAL_StatusTypeDef init();
@@ -61,4 +59,17 @@ public:
     HAL_StatusTypeDef set_Ipeak(float);
     void set_target_speed(float);
     void regulate(GenericEncoder& encoder, float dt) const;
+
+    bool is_on() const {
+        return _is_on;
+    }
+    float get_angle() const {
+        return angle;
+    }
+    float get_speed() const {
+        return speed;
+    }
+    float get_target_speed() const {
+        return target_speed;
+    }
 };

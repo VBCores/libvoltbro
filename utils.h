@@ -8,6 +8,7 @@
 #ifndef VOLTBROLIB_UTILS_H_
 #define VOLTBROLIB_UTILS_H_
 
+#include "stdbool.h"
 #if defined(STM32G474xx) || defined(STM32_G)
 #include "stm32g4xx_hal.h"
 #else
@@ -21,7 +22,6 @@ typedef uint32_t tim_register;
 typedef uint16_t encoder_data;
 
 #define pi2 6.28318530718
-#define MAX_16B 65535
 
 #define force_inline __attribute__((always_inline)) static inline
 
@@ -48,6 +48,7 @@ extern "C" {
 #endif
 
 uint32_t dac_value(double dac_voltage);
+bool is_close(float x, float y);
 
 #ifdef __cplusplus
 }

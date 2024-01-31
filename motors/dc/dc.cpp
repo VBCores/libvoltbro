@@ -15,7 +15,7 @@ HAL_StatusTypeDef DCMotorController::set_state(bool state) {
         config.nSLEEP_pin,
         state ? GPIO_PIN_SET : GPIO_PIN_RESET
     );
-    is_on = state;
+    _is_on = state;
     return HAL_OK;
 }
 
@@ -37,8 +37,20 @@ void DCMotorController::set_target_speed(float new_target_speed) {
 }
 
 void DCMotorController::regulate(GenericEncoder& encoder, float dt) const{
-    encoder.update_value();
-    volatile float angle = calculate_angles(config.common, angle_filter, encoder);
+    encoder.update_value(angle_filter);
+    float motor_angle = calculate_angle(config.common, encoder);
+
+    const float rads_per_rev = pi2 / config.common.gear_ratio;
+    int revolutions = encoder.get_revolutions() % config.common.gear_ratio;
+    float base_angle = 0;
+    if (revolutions < 0) {
+        base_angle = (config.common.gear_ratio + revolutions) * rads_per_rev;
+    }
+    else {
+        base_angle = revolutions * rads_per_rev;
+    }
+    angle = base_angle + (motor_angle / config.common.gear_ratio);
+    speed = calculate_speed(angle, dt);
 }
 
 HAL_StatusTypeDef DCMotorController::init() {
