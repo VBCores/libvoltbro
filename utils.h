@@ -14,15 +14,14 @@
 #include "stm32f4xx_hal.h"
 #endif
 
-#include "o1heap/o1heap.h"
-
 typedef uint16_t pin;
 typedef uint32_t pwm_channel;
 typedef uint32_t dac_channel;
 typedef uint32_t tim_register;
+typedef uint16_t encoder_data;
 
-extern GPIO_TypeDef* NotifyLED_GPIOx;
-extern pin NotifyLED_PIN;
+#define pi2 6.28318530718
+#define MAX_16B 65535
 
 #define force_inline __attribute__((always_inline)) static inline
 
@@ -33,7 +32,6 @@ extern pin NotifyLED_PIN;
 
 #define HAL_IMPORTANT(command) \
     if ((command) != HAL_OK) { \
-        blink_notify(5);       \
         Error_Handler();       \
     }
 
@@ -48,9 +46,6 @@ extern pin NotifyLED_PIN;
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-void blink_notify_led(int blinks, GPIO_TypeDef* GPIOx, pin GPIO_Pin);
-void blink_notify(int blinks);
 
 uint32_t dac_value(double dac_voltage);
 

@@ -1,28 +1,36 @@
 #pragma once
 
-#ifndef VBLIB_ENCODERS_GENERIC_H_
-#define VBLIB_ENCODERS_GENERIC_H_
-
-#ifdef __cplusplus
 #include <cstdint>
-extern "C" {
-#else
-#include <stdbool.h>
-#include <stdint.h>
-#endif
 
-typedef struct GEncoder {
-    bool inverted;
-    bool last_error;
-    const uint16_t CPR;
-    uint16_t value;
-    uint16_t elec_offset;
-    // encoder interface
-    uint16_t (*get_angle)(struct GEncoder*);
-} GEncoder;
+#include "utils.h"
 
-#ifdef __cplusplus
-}
-#endif
+class GenericEncoder {
+protected:
+    bool last_error = false;
 
-#endif /* VBLIB_ENCODERS_GENERIC_H_ */
+    int16_t revolutions;
+    encoder_data value = 0;
+public:
+    const bool is_electrical = false;
+    const encoder_data electric_offset = 0;
+    const bool is_inverted = false;
+    const encoder_data CPR;
+
+    GenericEncoder(encoder_data CPR, bool is_inverted = false): CPR(CPR), is_inverted(is_inverted) {};
+
+    virtual void update_value() = 0;
+
+    inline void incr_revolutions() {
+        revolutions++;
+    }
+    inline void decr_revolutions() {
+        revolutions--;
+    }
+    virtual inline encoder_data get_value() const {
+        return value;
+    }
+    inline uint16_t get_revolutions() {
+        return revolutions;
+    }
+
+};
