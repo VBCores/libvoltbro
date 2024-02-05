@@ -25,5 +25,9 @@ public:
         GenericEncoder& speed_encoder
     ) const;
     float calculate_speed(const float shaft_angle, const float dt) const;
+
+    virtual void regulate(float dt) = 0;
+    virtual void update_angle(GenericEncoder& speed_encoder) = 0;
+    virtual void update_speed(const float dt) = 0;
 };
 

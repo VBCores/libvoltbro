@@ -1,5 +1,7 @@
 #pragma once
 
+#include "utils.h"
+
 template <class T>
 class ReservedObject {
 private:
@@ -22,3 +24,8 @@ public:
         obj->~T();
     }
 };
+
+constexpr const micros MICROS_S = 1000000;
+constexpr const micros MICROS_0_1S = MICROS_S / 10;
+constexpr const micros MICROS_0_01S = MICROS_S / 100;
+constexpr const micros MICROS_0_001S = MICROS_S / 1000;

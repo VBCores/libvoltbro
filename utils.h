@@ -21,9 +21,19 @@ typedef uint32_t dac_channel;
 typedef uint32_t tim_register;
 typedef uint16_t encoder_data;
 
+typedef uint32_t millis;
+typedef uint64_t micros;
+
 #define pi2 6.28318530718
 
 #define force_inline __attribute__((always_inline)) static inline
+#define arm_atomic(T) alignas(T) T
+
+force_inline int64_t subtract_64(uint64_t first, uint64_t second) {
+    uint64_t abs_diff = (first > second) ? (first - second): (second - first);
+    assert_param(abs_diff <= INT64_MAX);
+    return (first > second) ? (int64_t)abs_diff : -(int64_t)abs_diff;
+}
 
 #define CRITICAL_SECTION(code_blk)          \
     uint32_t primask_bit = __get_PRIMASK(); \
@@ -35,13 +45,19 @@ typedef uint16_t encoder_data;
         Error_Handler();       \
     }
 
-#define MILLIS_COUNTER(counter) static uint32_t counter = 0;
-
-#define EACH_N_MILLIS(N, counter, code_blk) \
-    if ((tick - (counter)) >= (N)) {        \
-        (counter) = tick;                   \
-        code_blk                            \
+#define EACH_N(_value, _counter, N, code_blk)           \
+    if ((_value - _counter) >= (N)) {                   \
+        code_blk                                        \
+        _counter = _value;                              \
     }
+
+#define EACH_N_MICROS(_value, _counter, N, code_blk) \
+    int64_t diff = subtract_64(_value, _counter);    \
+    if (diff >= (int64_t)N) {                        \
+        code_blk                                     \
+        _counter = _value;                           \
+    }
+
 
 #ifdef __cplusplus
 extern "C" {

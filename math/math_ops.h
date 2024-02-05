@@ -18,7 +18,7 @@ extern "C" {
 #ifdef ARM_MATH_CM4
 #include "arm_math.h"
 #else
-#include "math.h"
+#include "arm_math.h"
 #define arm_sqrt_f32(v, pOut) *(pOut) = sqrtf(v)
 #define arm_cos_f32 cosf
 #define arm_sin_f32 sinf

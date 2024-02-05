@@ -8,11 +8,16 @@
 
 class DCIncrementalEncoder : public GenericEncoder {
 private:
+    const uint16_t half_cpr;
     TIM_HandleTypeDef* const encoder_tim;
     int32_t offset = 0;
     const encoder_data offset_incr;
-    float processed_value;
-    const uint16_t half_cpr;
+
+    /* WARNING! Explicitly specify alignment for guaranteed atomic reads and writes. Explanation:
+     * https://developer.arm.com/documentation/dui0375/g/C-and-C---Implementation-Details/Basic-data-types-in-ARM-C-and-C-- or https://stackoverflow.com/a/52785864
+     * short version: all reads/writes to var are atomic if it is "self"-aligned (1/2/4 byte)
+     * (Please, copy this comment to all variables that can be accessed concurrently - as a warning and a reminder) */
+    arm_atomic(float) processed_value;
 public:
     DCIncrementalEncoder(
         TIM_HandleTypeDef* encoder_tim,
@@ -33,20 +38,17 @@ public:
         return processed_value;
     }
 
-    void update_value(const LowPassFilter& filter) override {
+    void update_value() override {
         encoder_data new_value = __HAL_TIM_GetCounter(encoder_tim);
-        encoder_data filtered_data = (uint16_t) filter(
-            (float) value,
-            (float) new_value
-        );
-        int diff = value - filtered_data;
+        bool is_counting_down = __HAL_TIM_IS_TIM_COUNTING_DOWN(encoder_tim);
+
+        int32_t diff = (int32_t)value - (int32_t)new_value;
         if (abs(diff) > INT16_MAX) { // INT16_MAX == UINT16_MAX / 2
             offset += copysign(offset_incr, diff);
         }
         value = new_value;
 
-        uint32_t offset_val = value;
-        offset_val += offset;
+        uint32_t offset_val = value + offset;
         int32_t new_processed_value = offset_val % CPR - electric_offset;
         if (new_processed_value < 0) {
             new_processed_value += CPR;
@@ -54,11 +56,11 @@ public:
 
         int32_t difference = processed_value - new_processed_value;
         if (abs(difference) > half_cpr) {
-            if (difference > 0) {
-                incr_revolutions();
+            if (is_counting_down) {
+                decr_revolutions();
             }
             else {
-                decr_revolutions();
+                incr_revolutions();
             }
         }
 
