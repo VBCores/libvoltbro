@@ -13,12 +13,12 @@
 #include <cstdint>
 
 typedef struct {
-    pin pin;
+    pin pin_num;
     GPIO_TypeDef* port;
 } PinInfo;
 
 inline uint8_t pin_state(const PinInfo& pin_info) {
-    GPIO_PinState state = HAL_GPIO_ReadPin(pin_info.port, pin_info.pin);
+    GPIO_PinState state = HAL_GPIO_ReadPin(pin_info.port, pin_info.pin_num);
     return state == GPIO_PIN_SET ? 1 : 0;
 }
 
@@ -26,7 +26,7 @@ template <size_t N>
 class ConfigFromPins {
 public:
     std::array<PinInfo, N> pins;
-    ConfigFromPins(std::initializer_list<PinInfo> pins): pins(pins){}
+    ConfigFromPins(const std::array<PinInfo, N>&& pins): pins({pins}){}
 
     uint16_t get_id() {
         uint16_t result = 0;

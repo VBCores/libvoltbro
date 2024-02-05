@@ -80,4 +80,8 @@ public:
     float get_target_speed() const {
         return target_speed;
     }
+
+    float get_Ipeak() const {
+        return Ipeak;
+    }
 };
