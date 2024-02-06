@@ -1,3 +1,6 @@
+# Dev keys
+*.key*
+
 ### IDE
 # VSCode
 .vscode/*
