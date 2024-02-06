@@ -1,6 +1,10 @@
 #include "pid.h"
 
+#if defined(STM32G474xx) || defined(STM32_G)
 #include <arm_math.h>
+#else
+#include <math.h>
+#endif
 
 float PIDRegulator::regulation(float error, float dt) {
     if (fabs(error) <= config.tolerance) {

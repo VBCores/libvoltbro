@@ -1,6 +1,13 @@
 #pragma once
 
-#include "arm_math.h"
+#if defined(STM32G474xx) || defined(STM32_G)
+#include <arm_math.h>
+#else
+#include <math.h>
+#endif
+
+#include "utils.h"
+
 
 class LowPassFilter {
 public:

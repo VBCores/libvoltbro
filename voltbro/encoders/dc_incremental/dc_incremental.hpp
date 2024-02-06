@@ -1,4 +1,5 @@
 #pragma once
+#if defined(STM32G474xx) || defined(STM32_G)
 
 #include "stm32g4xx_hal.h"
 #include "arm_math.h"
@@ -67,3 +68,5 @@ public:
         processed_value = new_processed_value;
     }
 };
+
+#endif

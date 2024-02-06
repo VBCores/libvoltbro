@@ -1,4 +1,5 @@
 #pragma once
+#if defined(STM32G474xx) || defined(STM32_G)
 
 #include <cstdint>
 
@@ -37,3 +38,5 @@ public:
     }
 
 };
+
+#endif

@@ -1,3 +1,5 @@
+#if defined(STM32G474xx) || defined(STM32_G)
+
 #include "dc.h"
 #include "arm_math.h"
 
@@ -95,3 +97,5 @@ void DCMotorController::update_speed(const float dt) {
     speed = calculate_speed(angle, dt);
     speed_error = target_speed - speed;
 }
+
+#endif

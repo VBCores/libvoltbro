@@ -1,19 +1,7 @@
-/*
- * utils.h
- *
- *  Created on: Oct 19, 2022
- *      Author: igor
- */
+#pragma once
 
-#ifndef VOLTBROLIB_UTILS_H_
-#define VOLTBROLIB_UTILS_H_
-
+#include "stdint.h"
 #include "stdbool.h"
-#if defined(STM32G474xx) || defined(STM32_G)
-#include "stm32g4xx_hal.h"
-#else
-#include "stm32f4xx_hal.h"
-#endif
 
 typedef uint16_t pin;
 typedef uint32_t pwm_channel;
@@ -31,10 +19,10 @@ typedef uint64_t micros;
 
 force_inline int64_t subtract_64(uint64_t first, uint64_t second) {
     uint64_t abs_diff = (first > second) ? (first - second): (second - first);
-    assert_param(abs_diff <= INT64_MAX);
     return (first > second) ? (int64_t)abs_diff : -(int64_t)abs_diff;
 }
 
+#if defined(STM32G474xx) || defined(STM32_G)
 #define CRITICAL_SECTION(code_blk)          \
     uint32_t primask_bit = __get_PRIMASK(); \
     __disable_irq();                        \
@@ -44,6 +32,7 @@ force_inline int64_t subtract_64(uint64_t first, uint64_t second) {
     if ((command) != HAL_OK) { \
         Error_Handler();       \
     }
+#endif
 
 #define EACH_N(_value, _counter, N, code_blk)           \
     if ((_value - _counter) >= (N)) {                   \
@@ -52,8 +41,8 @@ force_inline int64_t subtract_64(uint64_t first, uint64_t second) {
     }
 
 #define EACH_N_MICROS(_value, _counter, N, code_blk) \
-    int64_t diff = subtract_64(_value, _counter);    \
-    if (diff >= (int64_t)N) {                        \
+    int64_t diff_##_counter = subtract_64(_value, _counter);    \
+    if (diff_##_counter >= (int64_t)N) {                        \
         code_blk                                     \
         _counter = _value;                           \
     }
@@ -69,5 +58,3 @@ bool is_close(float x, float y);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* VOLTBROLIB_UTILS_H_ */

@@ -1,9 +1,4 @@
-/*
- * transform.c
- *
- *  Created on: Jan 25, 2023
- *      Author: igor
- */
+#if defined(STM32G474xx) || defined(STM32_G)
 
 #include "Transform.h"
 #include "math_ops.h"
@@ -75,3 +70,5 @@ void svm(float v_bus, float u, float v, float w, float* dtc_u, float* dtc_v, flo
     *dtc_v = fminf(fmaxf(((v - v_offset) / v_bus + .5f), DTC_MIN), DTC_MAX);
     *dtc_w = fminf(fmaxf(((w - v_offset) / v_bus + .5f), DTC_MIN), DTC_MAX);
 }
+
+#endif

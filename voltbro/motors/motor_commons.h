@@ -1,4 +1,5 @@
 #pragma once
+#if defined(STM32G474xx) || defined(STM32_G)
 
 #include "encoders/generic.h"
 #include "dsp/low_pass_filter.hpp"
@@ -31,3 +32,4 @@ public:
     virtual void update_speed(const float dt) = 0;
 };
 
+#endif

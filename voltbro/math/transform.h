@@ -1,12 +1,5 @@
-/*
- * transform.h
- *
- *  Created on: Jan 25, 2023
- *      Author: igor
- */
-
-#ifndef VBLIB_MATH_TRANSFORM_H_
-#define VBLIB_MATH_TRANSFORM_H_
+#pragma once
+#if defined(STM32G474xx) || defined(STM32_G)
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,4 +18,4 @@ void svm(float v_bus, float u, float v, float w, float* dtc_u, float* dtc_v, flo
 }
 #endif
 
-#endif /* VBLIB_MATH_TRANSFORM_H_ */
+#endif

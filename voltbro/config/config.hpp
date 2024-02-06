@@ -1,4 +1,5 @@
 #pragma once
+#if defined(STM32G474xx) || defined(STM32_G)
 
 #include <memory>
 
@@ -36,3 +37,5 @@ public:
         return result;
     }
 };
+
+#endif

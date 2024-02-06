@@ -1,3 +1,5 @@
+#if defined(STM32G474xx) || defined(STM32_G)
+
 #include "motor_commons.h"
 #include "arm_math.h"
 
@@ -42,3 +44,5 @@ float AbstractMotor::calculate_speed(const float shaft_angle, const float dt) co
 
     return velocity;
 }
+
+#endif

@@ -1,12 +1,5 @@
-/*
- * math.h
- *
- *  Created on: Jan 25, 2023
- *      Author: igor
- */
-
-#ifndef VBLIB_MATH_MATH_OPS_H_
-#define VBLIB_MATH_MATH_OPS_H_
+#pragma once
+#if defined(STM32G474xx) || defined(STM32_G)
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -18,7 +11,7 @@ extern "C" {
 #ifdef ARM_MATH_CM4
 #include "arm_math.h"
 #else
-#include "arm_math.h"
+#include "math.h"
 #define arm_sqrt_f32(v, pOut) *(pOut) = sqrtf(v)
 #define arm_cos_f32 cosf
 #define arm_sin_f32 sinf
@@ -38,4 +31,4 @@ float mfmod(float x, float y);
 }
 #endif
 
-#endif /* VBLIB_MATH_MATH_OPS_H_ */
+#endif

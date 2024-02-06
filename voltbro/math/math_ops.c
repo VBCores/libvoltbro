@@ -1,9 +1,4 @@
-/*
- * math.c
- *
- *  Created on: Jan 25, 2023
- *      Author: igor
- */
+#if defined(STM32G474xx) || defined(STM32_G)
 
 #include "math_ops.h"
 
@@ -61,3 +56,5 @@ float uint_to_float(int x_int, float x_min, float x_max, uint8_t bits) {
 float mfmod(float x, float y) {
     return x - ((int)(x / y)) * y;
 }
+
+#endif
