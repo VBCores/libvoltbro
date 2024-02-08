@@ -6,7 +6,7 @@
 #include <math.h>
 #endif
 
-#include "utils.h"
+#include "voltbro/utils.hpp"
 
 
 class LowPassFilter {

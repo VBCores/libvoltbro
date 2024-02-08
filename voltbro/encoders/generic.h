@@ -3,8 +3,8 @@
 
 #include <cstdint>
 
-#include "utils.h"
-#include "dsp/low_pass_filter.hpp"
+#include "voltbro/utils.hpp"
+#include "voltbro/dsp/low_pass_filter.hpp"
 
 class GenericEncoder {
 protected:
