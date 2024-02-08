@@ -4,8 +4,8 @@
 #include "stm32g4xx_hal.h"
 #include "arm_math.h"
 
-#include "utils.h"
-#include "encoders/generic.h"
+#include "voltbro/utils.h"
+#include "voltbro/encoders/generic.h"
 
 class DCIncrementalEncoder : public GenericEncoder {
 private:

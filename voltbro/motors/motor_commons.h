@@ -1,8 +1,8 @@
 #pragma once
 #if defined(STM32G474xx) || defined(STM32_G)
 
-#include "encoders/generic.h"
-#include "dsp/low_pass_filter.hpp"
+#include "voltbro/encoders/generic.h"
+#include "voltbro/dsp/low_pass_filter.hpp"
 
 struct CommonDriverConfig {
     uint8_t ppairs = 0;

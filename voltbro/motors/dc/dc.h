@@ -5,11 +5,11 @@
 
 #include "stm32g4xx_hal.h"
 
-#include "utils.h"
-#include "encoders/generic.h"
-#include "regulators/pid/pid.h"
-#include "motors/motor_commons.h"
-#include "dsp/low_pass_filter.hpp"
+#include "voltbro/utils.hpp"
+#include "voltbro/encoders/generic.h"
+#include "voltbro/regulators/pid/pid.h"
+#include "voltbro/motors/motor_commons.h"
+#include "voltbro/dsp/low_pass_filter.hpp"
 
 struct DCDriverConfig {
     const pin nSLEEP_pin;
