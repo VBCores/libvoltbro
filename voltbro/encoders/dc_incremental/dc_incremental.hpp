@@ -1,7 +1,8 @@
 #pragma once
 #if defined(STM32G474xx) || defined(STM32_G)
-
 #include "stm32g4xx_hal.h"
+#if defined(HAL_TIM_MODULE_ENABLED)
+
 #include "arm_math.h"
 
 #include "voltbro/utils.h"
@@ -69,4 +70,5 @@ public:
     }
 };
 
+#endif
 #endif
