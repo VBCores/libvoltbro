@@ -49,33 +49,75 @@ public:
         set_pulse(0);
         HAL_TIM_PWM_Start(htim, channel);
     }
-
-    void calibration_sequence() {
-        set_pulse(1.0f);
-        HAL_Delay(6000);
-        set_pulse(0.5f);
-        HAL_Delay(500);
-        set_pulse(0.0f);
-        HAL_Delay(4000);
-    }
-
-    void arming_sequence() {
-        const uint32_t delay = 20;
-        const uint32_t segments = 1 * 100 / delay;
-
-        const double quarter_pi = M_PI / 4;
-        for (float t = 0; t < quarter_pi; t += quarter_pi / segments) {
-            HAL_Delay(delay);
-            set_pulse(sinf(t));
-        }
-        for (float t = 0; t < quarter_pi; t += quarter_pi / segments) {
-            HAL_Delay(delay);
-            set_pulse(sinf(quarter_pi - t));
-        }
-        set_pulse(0.0f);
-        HAL_Delay(500);
-    }
 };
+
+template<typename Iterable>
+inline void calibration_sequence(Iterable& controllers_iterable) {
+    for (BLHeli_SController& controller: controllers_iterable) {
+        controller.set_pulse(1.0f);
+    }
+    HAL_Delay(6000);
+    for (BLHeli_SController& controller: controllers_iterable) {
+        controller.set_pulse(0.5f);
+    }
+    HAL_Delay(500);
+    for (BLHeli_SController& controller: controllers_iterable) {
+        controller.set_pulse(0.0f);
+    }
+    HAL_Delay(4000);
+}
+
+template<>
+inline void calibration_sequence<BLHeli_SController>(BLHeli_SController& controller) {
+    controller.set_pulse(1.0f);
+    HAL_Delay(6000);
+    controller.set_pulse(0.5f);
+    HAL_Delay(500);
+    controller.set_pulse(0.0f);
+    HAL_Delay(4000);
+}
+
+template<typename Iterable>
+inline void arming_sequence(Iterable& controllers_iterable) {
+    const uint32_t delay = 20;
+    const uint32_t segments = 1 * 100 / delay;
+
+    const double quarter_pi = M_PI / 4;
+    for (float t = 0; t < quarter_pi; t += quarter_pi / segments) {
+        HAL_Delay(delay);
+        for (BLHeli_SController& controller: controllers_iterable) {
+            controller.set_pulse(sinf(t));
+        }
+    }
+    for (float t = 0; t < quarter_pi; t += quarter_pi / segments) {
+        HAL_Delay(delay);
+        for (BLHeli_SController& controller: controllers_iterable) {
+            controller.set_pulse(sinf(quarter_pi - t));
+        }
+    }
+    for (BLHeli_SController& controller: controllers_iterable) {
+        controller.set_pulse(0.0f);
+    }
+    HAL_Delay(500);
+}
+
+template<>
+inline void arming_sequence<BLHeli_SController>(BLHeli_SController& controller) {
+    const uint32_t delay = 20;
+    const uint32_t segments = 1 * 100 / delay;
+
+    const double quarter_pi = M_PI / 4;
+    for (float t = 0; t < quarter_pi; t += quarter_pi / segments) {
+        HAL_Delay(delay);
+        controller.set_pulse(sinf(t));
+    }
+    for (float t = 0; t < quarter_pi; t += quarter_pi / segments) {
+        HAL_Delay(delay);
+        controller.set_pulse(sinf(quarter_pi - t));
+    }
+    controller.set_pulse(0.0f);
+    HAL_Delay(500);
+}
 
 #endif
 #endif
