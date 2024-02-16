@@ -1,9 +1,10 @@
 #pragma once
 #if defined(STM32G474xx) || defined(STM32_G)
 
-#include <utility>
-
 #include "stm32g4xx_hal.h"
+#if defined(HAL_DAC_MODULE_ENABLED) && defined(HAL_TIM_MODULE_ENABLED)
+
+#include <utility>
 
 #include "voltbro/utils.hpp"
 #include "voltbro/encoders/generic.h"
@@ -90,4 +91,5 @@ public:
     }
 };
 
+#endif
 #endif

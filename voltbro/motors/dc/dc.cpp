@@ -1,6 +1,7 @@
 #if defined(STM32G474xx) || defined(STM32_G)
-
 #include "dc.h"
+#if defined(HAL_DAC_MODULE_ENABLED) && defined(HAL_TIM_MODULE_ENABLED)
+
 #include "arm_math.h"
 
 HAL_StatusTypeDef DCMotorController::stop() {
@@ -101,4 +102,5 @@ void DCMotorController::update_speed(const float dt) {
     speed_error = target_speed - speed;
 }
 
+#endif
 #endif
