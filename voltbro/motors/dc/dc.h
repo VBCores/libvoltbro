@@ -33,6 +33,7 @@ class DCMotorController: public AbstractMotor {
 private:
     const DCDriverConfig config;
     PIDRegulator regulator;
+    bool is_using_brake;
 
     /* WARNING! Explicitly specify alignment for guaranteed atomic reads and writes. Explanation:
      * https://developer.arm.com/documentation/dui0375/g/C-and-C---Implementation-Details/Basic-data-types-in-ARM-C-and-C-- or https://stackoverflow.com/a/52785864
@@ -51,11 +52,13 @@ public:
         const DCDriverConfig&& driver,
         PIDConfig&& config,
         float angle_filter = 1,
-        float speed_filter = 1
+        float speed_filter = 1,
+        bool is_using_brake = false
     ):
         AbstractMotor(angle_filter, speed_filter),
         config(driver),
-        regulator(std::forward<PIDConfig>(config))
+        regulator(std::forward<PIDConfig>(config)),
+        is_using_brake(is_using_brake)
     {};
 
     HAL_StatusTypeDef init();

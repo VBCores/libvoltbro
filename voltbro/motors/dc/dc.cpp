@@ -40,9 +40,13 @@ void DCMotorController::set_target_speed(float new_target_speed) {
 
 void DCMotorController::regulate(float dt) {
     if (is_close(target_speed, 0)) {
-        // Brake
-        __HAL_TIM_SET_COMPARE(config.timer, config.IN1_channel, config.max_pwm);
-        __HAL_TIM_SET_COMPARE(config.timer, config.IN2_channel, config.max_pwm);
+        tim_register zero_pwm = 0;
+        if (is_using_brake) {
+            // Active brake
+            zero_pwm = config.max_pwm;
+        }
+        __HAL_TIM_SET_COMPARE(config.timer, config.IN1_channel, zero_pwm);
+        __HAL_TIM_SET_COMPARE(config.timer, config.IN2_channel, zero_pwm);
         return;
     }
 
@@ -51,11 +55,10 @@ void DCMotorController::regulate(float dt) {
     if (abs(current_pwm) > config.max_pwm) {
         current_pwm = copysign(config.max_pwm, current_pwm);
     }
-    else {
-        if (abs(current_pwm) < config.min_pwm) {
-            current_pwm = copysign(config.min_pwm, target_speed);
-        }
+    else if (abs(current_pwm) < config.min_pwm) {
+        current_pwm = copysign(config.min_pwm, target_speed);
     }
+
     if (current_pwm < 0) {
         __HAL_TIM_SET_COMPARE(config.timer, config.IN2_channel, (uint16_t)abs(current_pwm));
         __HAL_TIM_SET_COMPARE(config.timer, config.IN1_channel, 0);
