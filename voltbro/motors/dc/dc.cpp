@@ -48,6 +48,7 @@ void DCMotorController::regulate(float dt) {
         }
         __HAL_TIM_SET_COMPARE(config.timer, config.IN1_channel, zero_pwm);
         __HAL_TIM_SET_COMPARE(config.timer, config.IN2_channel, zero_pwm);
+        current_pwm = 0;
         return;
     }
 
