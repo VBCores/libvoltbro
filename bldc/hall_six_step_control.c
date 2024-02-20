@@ -10,8 +10,36 @@ int16_t local_pwm = 100;
 
 const float outlier_threshold = pi2 * 10;
 void hall_six_step_control_callback(HallSensor* encoder, DriverControl *controller, DriveInfo *drive, InverterState *inverter, float dt) {
-    // VERY roughly
-    calculate_angles(drive, controller, (GEncoder*)encoder);
+    const uint16_t abs_value = encoder->common.value;
+
+    static uint16_t prev_abs_value = -1;  // initial bigger than CPR
+    if (prev_abs_value > encoder->common.CPR) {
+        prev_abs_value = abs_value;
+    }
+
+    int32_t difference = prev_abs_value - abs_value;
+    prev_abs_value = abs_value;
+    if ( abs(difference) > (encoder->common.CPR / 2) ) {
+        if (difference > 0) {
+            encoder->common.revolutions += 1;
+        }
+        else {
+            encoder->common.revolutions -= 1;
+        }
+    }
+
+    float current_circle_part = (float)abs_value / encoder->common.CPR;
+
+    const float circle_part_per_revolution = 1.0f / drive->ppairs;
+    int32_t revolutions = encoder->common.revolutions % (int16_t)drive->ppairs;
+    if (revolutions < 0) {
+        revolutions += drive->ppairs;
+    }
+    float current_cycles = revolutions;
+    float full_circle_part = (current_cycles + current_circle_part) * circle_part_per_revolution;
+
+    drive->shaft_angle = pi2 * full_circle_part;
+
     float prev_velocity = drive->shaft_velocity;
     calculate_speed(drive, controller, dt);
     if (fabsf(drive->shaft_velocity) > outlier_threshold) {

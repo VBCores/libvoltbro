@@ -167,12 +167,16 @@ force_inline void flow_direction(DriveInfo* drive, DrivePhase from, DrivePhase t
         off = PHASE_B;
     if (PHASE_C != from && PHASE_C != to)
         off = PHASE_C;
+
     HAL_GPIO_WritePin(GPIOB, drive->L_PINS[off], GPIO_PIN_RESET);
+    *DQs[off] = 0;
 
     HAL_GPIO_WritePin(GPIOB, drive->L_PINS[from], GPIO_PIN_SET);
+    *DQs[from] = actual_pwm;
+
     HAL_GPIO_WritePin(GPIOB, drive->L_PINS[to], GPIO_PIN_SET);
     *DQs[to] = 0;
-    *DQs[from] = actual_pwm;
+
 }
 
 

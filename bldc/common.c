@@ -84,7 +84,11 @@ void calculate_angles(DriveInfo* drive, DriverControl* controller, GEncoder* spe
     float full_circle_part = current_circle_part;
     if (speed_encoder->is_electrical) {
         float circle_part_per_revolution = 1.0f / drive->ppairs;
-        float current_cycles = speed_encoder->revolutions % drive->ppairs;
+        int32_t revolutions = speed_encoder->revolutions % drive->ppairs;
+        if (revolutions <= 0) {
+            revolutions += drive->ppairs;
+        }
+        float current_cycles = revolutions;
         full_circle_part = (current_cycles + current_circle_part) * circle_part_per_revolution;
     }
 

@@ -20,7 +20,7 @@ typedef struct GEncoder {
     uint16_t elec_offset;
     // encoder interface
     uint16_t (*get_angle)(struct GEncoder*);
-    uint64_t revolutions;  // number of ELECTRICAL turns
+    int32_t revolutions;  // number of ELECTRICAL turns
 } GEncoder;
 
 #ifdef __cplusplus
