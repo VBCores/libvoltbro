@@ -89,6 +89,13 @@ public:
     float get_Ipeak() const {
         return Ipeak;
     }
+
+    PIDConfig get_config() {
+        return regulator.get_config();
+    }
+    void update_pid_config(PIDConfig&& new_config) {
+        regulator.update_config(std::forward<PIDConfig&&>(new_config));
+    }
 };
 
 #endif

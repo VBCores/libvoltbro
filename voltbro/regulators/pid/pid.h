@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 struct PIDConfig {
     float multiplier = 1.0;
     float p_gain;
@@ -14,10 +16,17 @@ private:
     float signal = 0.0f;
     float integral_error = 0.0f;
     float prev_error = 0.0f;
-    const PIDConfig config;
+    PIDConfig config;
 public:
     // expect copy-elision
-    explicit PIDRegulator(const PIDConfig&& config) : config(config) {}
+    explicit PIDRegulator(const PIDConfig&& config) : config(std::move(config)) {}
 
     float regulation(float error, float dt);
+
+    void update_config(PIDConfig&& new_config) {
+        config = new_config;
+    }
+    PIDConfig get_config() {
+        return config;
+    }
 };
