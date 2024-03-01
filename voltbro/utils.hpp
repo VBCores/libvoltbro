@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 #include "utils.h"
 
 template <class T>
@@ -10,7 +12,7 @@ private:
 public:
     template <class... Args>
     void create(Args&&... args) {
-        obj = new (buffer) T(args...);
+        obj = new (buffer) T(std::forward<Args>(args)...);
     }
 
     T* pointer() {

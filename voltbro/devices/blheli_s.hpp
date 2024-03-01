@@ -21,11 +21,11 @@ public:
     void set_pulse(float pulse) {
         if (!_is_on) {
             // Защита от дурака
-            __HAL_TIM_SET_COMPARE(htim, channel, 0);
+            __HAL_TIM_SET_COMPARE(htim, channel, min_phase);
             return;
         }
         assert_param((pulse >= 0.0) && (pulse <= 1.0));
-        const uint32_t adj = min_phase * pulse;
+        const uint32_t adj = (float)min_phase * pulse;
         __HAL_TIM_SET_COMPARE(htim, channel, min_phase + adj);
     }
 
