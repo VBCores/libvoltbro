@@ -10,8 +10,11 @@ float AbstractMotor::calculate_angle(
     float current_circle_part = (float)speed_encoder.get_value() / (float)speed_encoder.CPR;
     if (speed_encoder.is_electrical) {
         float circle_part_per_revolution = 1.0f / drive.ppairs;
-        float current_cycles = speed_encoder.get_revolutions() % drive.ppairs;
-        current_circle_part = (current_cycles + current_circle_part) * circle_part_per_revolution;
+        int32_t revolutions = speed_encoder.get_revolutions() % (int16_t)drive.ppairs;
+        if (revolutions < 0) {
+            revolutions += drive.ppairs;
+        }
+        current_circle_part = (revolutions + current_circle_part) * circle_part_per_revolution;
     }
 
     return current_circle_part * pi2;

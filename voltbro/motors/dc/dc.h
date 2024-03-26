@@ -69,8 +69,8 @@ public:
     HAL_StatusTypeDef set_Ipeak(float);
     void set_target_speed(float);
 
-    void update_angle(GenericEncoder& speed_encoder) override;
-    void update_speed(const float dt) override;
+    void update_angle(GenericEncoder& speed_encoder);
+    void update_speed(const float dt);
     void regulate(float dt) override;
 
     bool is_on() const {
