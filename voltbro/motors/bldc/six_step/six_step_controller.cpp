@@ -7,7 +7,7 @@ void SixStepController::hall_six_step_control_callback() {
     shaft_angle = calculate_angle(drive_info.common, hall_sensor);
 }
 
-//#define USE_CONTROL
+#define USE_CONTROL
 #ifdef DEBUG
 float speed_error;
 double control_signal;
@@ -25,7 +25,7 @@ handle_hall_data:
     step_to_phases(hall_sensor.get_step(), first, second);
 
     static uint32_t ticks_since_sample_abs = 0;
-    double passed_time_abs = ticks_since_sample_abs * T;
+    float passed_time_abs = ticks_since_sample_abs * T;
     if (passed_time_abs > control_config.sampling_interval) {
 #ifndef DEBUG
         float speed_error;
@@ -73,7 +73,7 @@ handle_hall_data:
     }
 
 #ifndef USE_CONTROL
-    local_pwm = 500;
+    local_pwm = 300;
 #endif
 
     int16_t actual_pwm = local_pwm;

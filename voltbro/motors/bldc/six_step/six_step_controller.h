@@ -15,6 +15,7 @@ private:
     const SetPointType point_type;
 public:
     SixStepController(
+        float T,
         SetPointType point_type,
         DriveInfo&& drive_info,
         ControlConfig&& control_config,
@@ -23,6 +24,7 @@ public:
         HallSensor& hall_sensor
     ):
         BLDCController(
+            T,
             std::forward<DriveInfo>(drive_info),
             std::forward<ControlConfig>(control_config),
             htim,

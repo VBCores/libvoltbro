@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 #ifdef ARM_MATH_CM4
+#include "stm32g4xx.h"
 #include "arm_math.h"
 #else
 #include "math.h"

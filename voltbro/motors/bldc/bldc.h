@@ -56,7 +56,7 @@ protected:
     DriveInfo drive_info;
     Inverter inverter;
     const int32_t full_pwm;
-    const double T;  // control loop period, sec
+    const float T;  // control loop period, sec
     TIM_HandleTypeDef* const htim;
 
     arm_atomic(float) shaft_angle;
@@ -66,6 +66,7 @@ protected:
     uint16_t DQs[3] = {0, 0, 0};
 public:
     BLDCController(
+        float T,
         DriveInfo&& drive_info,
         ControlConfig&& control_config,
         TIM_HandleTypeDef* htim,
@@ -77,8 +78,8 @@ public:
         drive_info(std::move(drive_info)),
         control_config(std::move(control_config)),
         htim(htim),
-        T(0),
-        full_pwm(0),
+        T(T),
+        full_pwm(htim->Instance->ARR),
         inverter(ADC_buffer)
         {}
 

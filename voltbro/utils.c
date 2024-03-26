@@ -1,4 +1,5 @@
 #if defined(STM32G474xx) || defined(STM32_G)
+#include "stm32g4xx.h"
 #include <arm_math.h>
 #else
 #include <math.h>
