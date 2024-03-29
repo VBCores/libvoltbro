@@ -3,6 +3,9 @@
 
 #include "voltbro/encoders/generic.h"
 #include "voltbro/dsp/low_pass_filter.hpp"
+#ifndef ARM_MATH
+constexpr float PI = 3.14159265359;
+#endif
 
 struct CommonDriverConfig {
     uint8_t ppairs = 0;

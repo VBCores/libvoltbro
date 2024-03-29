@@ -1,7 +1,11 @@
 #if defined(STM32G474xx) || defined(STM32_G)
 
 #include "motor_commons.h"
-#include "arm_math.h"
+#ifdef ARM_MATH
+#include <arm_math.h>
+#else
+#include <math.h>
+#endif
 
 float AbstractMotor::calculate_angle(
     const CommonDriverConfig& drive,
