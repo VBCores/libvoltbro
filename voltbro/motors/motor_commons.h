@@ -30,7 +30,7 @@ public:
     ) const;
     float calculate_speed(const float shaft_angle, const float dt) const;
 
-    virtual void regulate(float dt) = 0;
+    virtual void regulate(float dt = 0) = 0;
 };
 
 #endif

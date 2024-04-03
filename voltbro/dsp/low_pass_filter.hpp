@@ -11,6 +11,7 @@
 #endif
 
 #include "voltbro/utils.hpp"
+#include "voltbro/utils.h"
 
 
 class LowPassFilter {
@@ -18,7 +19,7 @@ public:
     const float beta;
     LowPassFilter(float beta = 0.5): beta(beta) {};
 
-    float operator () (float prev_value, float new_value) const {
+    inline float operator () (float prev_value, float new_value) const {
         if (is_close(beta, 1)) {
             return new_value;
         }

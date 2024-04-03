@@ -6,7 +6,8 @@
 
 class Inverter {
 private:
-    const uint32_t* const ADC_buffer;
+    const volatile uint32_t ADC_buffer[4] = {};
+    ADC_HandleTypeDef* hadc;
 
     float I_A_offset = 0;
     float I_B_offset = 0;
@@ -15,10 +16,10 @@ private:
     float I_B = 0;
     float I_C = 0;
     float busV = 0;
+
+    bool is_started = false;
 public:
-    Inverter(const uint32_t* ADC_buffer):
-        ADC_buffer(ADC_buffer)
-        {}
+    Inverter(ADC_HandleTypeDef* hadc): hadc(hadc) {}
 
     float get_A() const { return I_A; }
     float get_B() const { return I_B; }
@@ -26,6 +27,27 @@ public:
     float get_busV() const { return busV; }
 
     void start() {
+        if (is_started) {
+            return;
+        }
+
+        // apply factory calibration
+        HAL_ADCEx_Calibration_Start(hadc, ADC_SINGLE_ENDED);
+        // const_cast to allow HAL to work
+        HAL_ADC_Start_DMA(hadc, const_cast<uint32_t *>(ADC_buffer), 4);
+        // Record offset;
+        int cycles = 64;
+        for (int i = 0; i < cycles; i++) {
+            I_A_offset += (3.3f * (float)ADC_buffer[1] / (16.0f * 4096.0f));
+            I_B_offset += (3.3f * (float)ADC_buffer[2] / (16.0f * 4096.0f));
+            I_C_offset += (3.3f * (float)ADC_buffer[3] / (16.0f * 4096.0f));
+            HAL_Delay(1);
+        }
+        I_A_offset /= (float)cycles;
+        I_B_offset /= (float)cycles;
+        I_C_offset /= (float)cycles;
+
+        is_started = true;
     }
 
     void update() {

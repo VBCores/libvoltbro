@@ -3,40 +3,39 @@
 #include "stm32g4xx_hal.h"
 #ifdef HAL_TIM_MODULE_ENABLED
 
-#include <memory>
-
 #include "../bldc.h"
 
-enum class SetPointType { VELOCITY, VOLTAGE };
+#include "voltbro/encoders/AS5048A/AS5048A.h"
 
-class SixStepController: public BLDCController {
+class FOC: public BLDCController  {
 private:
-    HallSensor& hall_sensor;
-    const SetPointType point_type;
+    AS5048A encoder;
+    float T;
 
-    const float T;  // control loop period, sec
+    float kalman_velocity(float new_angle);
 public:
-    SixStepController(
+    FOC(
         float T,
-        SetPointType point_type,
         DriveInfo&& drive_info,
         ControlConfig&& control_config,
+        AS5048A&& encoder,
         TIM_HandleTypeDef* htim,
         ADC_HandleTypeDef* hadc,
-        HallSensor& hall_sensor
+        float angle_filter = 1,
+        float speed_filter = 1
     ):
         BLDCController(
             std::forward<DriveInfo>(drive_info),
             std::forward<ControlConfig>(control_config),
             htim,
-            hadc
+            hadc,
+            angle_filter,
+            speed_filter
         ),
-        hall_sensor(hall_sensor),
-        point_type(point_type),
+        encoder(std::forward<AS5048A>(encoder)),
         T(T)
     {}
 
-    void hall_six_step_control_callback();
     void callback() override;
 };
 

@@ -56,7 +56,6 @@ protected:
     DriveInfo drive_info;
     Inverter inverter;
     const int32_t full_pwm;
-    const float T;  // control loop period, sec
     TIM_HandleTypeDef* const htim;
 
     arm_atomic(float) shaft_angle;
@@ -66,22 +65,20 @@ protected:
     uint16_t DQs[3] = {0, 0, 0};
 public:
     BLDCController(
-        float T,
         DriveInfo&& drive_info,
         ControlConfig&& control_config,
         TIM_HandleTypeDef* htim,
-        const uint32_t* ADC_buffer,
+        ADC_HandleTypeDef* hadc,
         float angle_filter = 1,
         float speed_filter = 1
     ):
         AbstractMotor(angle_filter, speed_filter),
-        drive_info(std::move(drive_info)),
         control_config(std::move(control_config)),
-        htim(htim),
-        T(T),
+        drive_info(std::move(drive_info)),
+        inverter(hadc),
         full_pwm(htim->Instance->ARR),
-        inverter(ADC_buffer)
-        {}
+        htim(htim)
+    {}
 
     void detect_stall(double passed_time_abs);
     void quit_stall() {
@@ -122,15 +119,22 @@ public:
         return theta;
     }
 
-    bool is_on() {
+    bool is_on() const {
         return _is_on;
     }
     HAL_StatusTypeDef stop();
     HAL_StatusTypeDef start();
     HAL_StatusTypeDef set_state(bool);
-    virtual void callback() = 0;
 
-    void regulate(float dt) override;
+    float get_angle() const {
+        return shaft_angle;
+    }
+    float get_velocity() const {
+        return shaft_velocity;
+    }
+
+    virtual void callback() = 0;
+    void regulate(float dt = 0) override;
 };
 
 void step_to_phases(EncoderStep step, DrivePhase& first, DrivePhase& second);

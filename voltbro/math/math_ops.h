@@ -1,12 +1,7 @@
 #pragma once
 #if defined(STM32G474xx) || defined(STM32_G)
 
-#ifdef __cplusplus
 #include <cstdint>
-extern "C" {
-#else
-#include <stdint.h>
-#endif
 
 #ifdef ARM_MATH_CM4
 #include "stm32g4xx.h"
@@ -27,9 +22,5 @@ void limit_norm(float* x, float* y, float limit);
 int float_to_uint(float x, float x_min, float x_max, uint8_t bits);
 float uint_to_float(int x_int, float x_min, float x_max, uint8_t bits);
 float mfmod(float x, float y);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

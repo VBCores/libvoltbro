@@ -1,5 +1,11 @@
 #pragma once
 
+#ifdef ARM_MATH_CM4
+#include "arm_math.h"
+#else
+#include "math.h"
+#endif
+
 #include "stdint.h"
 #include "stdbool.h"
 
@@ -52,8 +58,15 @@ force_inline int64_t subtract_64(uint64_t first, uint64_t second) {
 extern "C" {
 #endif
 
-uint32_t dac_value(double dac_voltage);
-bool is_close(float x, float y);
+#define EPS 1e-10
+
+inline uint32_t dac_value(double dac_voltage) {
+    return floor(4095 * dac_voltage / 3.3);
+}
+
+inline bool is_close(float x, float y) {
+    return fabsf(x - y) < EPS;
+}
 
 #ifdef __cplusplus
 }

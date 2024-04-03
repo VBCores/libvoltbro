@@ -14,6 +14,7 @@ HAL_StatusTypeDef BLDCController::stop() {
 }
 
 HAL_StatusTypeDef BLDCController::start() {
+    inverter.start();
     for (int i = 0; i < 3; i++) {
         HAL_GPIO_WritePin(
                 drive_info.en_port,
@@ -79,7 +80,6 @@ void BLDCController::detect_stall(double passed_time_abs) {
 #ifndef DEBUG
     static double cur_time = 0;
     static double stall_start_time = 0;
-    static bool is_stalling = false;
 #endif
     cur_time += passed_time_abs;
 
@@ -103,7 +103,7 @@ void BLDCController::detect_stall(double passed_time_abs) {
     }
 }
 
-void BLDCController::regulate(float dt) {
+void BLDCController::regulate(float _) {
     callback();
     __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, DQs[0]);
     __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, DQs[1]);

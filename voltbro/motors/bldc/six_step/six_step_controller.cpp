@@ -10,7 +10,7 @@ void SixStepController::hall_six_step_control_callback() {
 #define USE_CONTROL
 #ifdef DEBUG
 float speed_error;
-double control_signal;
+float control_signal;
 #endif
 void SixStepController::callback() {
 #ifndef DEBUG
@@ -29,7 +29,7 @@ handle_hall_data:
     if (passed_time_abs > control_config.sampling_interval) {
 #ifndef DEBUG
         float speed_error;
-        double signal;
+        float control_signal;
 #endif
         int16_t new_pwm = local_pwm;
 

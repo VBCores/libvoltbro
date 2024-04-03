@@ -19,7 +19,7 @@ enum class AS5048ARegister {
 };
 
 // ~200 ns delay for the SPI communication
-__attribute__((always_inline)) static inline void CS_delay(void) {
+__attribute__((always_inline, optimize("O0"))) static inline void CS_delay(void) {
     uint8_t k = 32;
     while (k--) {
         __asm__("nop");
@@ -46,7 +46,7 @@ public:
         encoder_data CPR,
         bool is_inverted = false,
         bool is_electrical = false,
-        encoder_data electric_offset = 0,
+        encoder_data electric_offset = 0
     ):
         GenericEncoder(CPR, is_inverted, is_inverted, electric_offset),
         SPI_SS_GPIOx(SPI_SS_GPIOx),
