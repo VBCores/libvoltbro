@@ -133,8 +133,11 @@ public:
         return shaft_velocity;
     }
 
-    virtual void callback() = 0;
-    void regulate(float dt = 0) override;
+    inline void set_pwm() {
+        __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, DQs[0]);
+        __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, DQs[1]);
+        __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, DQs[2]);
+    }
 };
 
 void step_to_phases(EncoderStep step, DrivePhase& first, DrivePhase& second);

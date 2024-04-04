@@ -37,7 +37,7 @@ public:
     {}
 
     void hall_six_step_control_callback();
-    void callback() override;
+    void regulate(float _ = 0) override;
 };
 
 #endif

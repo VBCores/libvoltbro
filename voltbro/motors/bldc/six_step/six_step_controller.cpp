@@ -12,7 +12,7 @@ void SixStepController::hall_six_step_control_callback() {
 float speed_error;
 float control_signal;
 #endif
-void SixStepController::callback() {
+void SixStepController::regulate(float _) {
 #ifndef DEBUG
     static uint16_t PWM;
 #endif
@@ -81,6 +81,8 @@ handle_hall_data:
         actual_pwm = -actual_pwm;
     }
     flow_direction(first, second, actual_pwm);
+
+    set_pwm();
 }
 
 #endif

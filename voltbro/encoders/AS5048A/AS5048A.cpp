@@ -11,9 +11,8 @@ static const uint16_t AS5048A_DIAG_COMP_LOW = 0x1000;
 static const uint16_t AS5048A_DIAG_COF = 0x0800;
 static const uint16_t AS5048A_DIAG_OCF = 0x0400;
 
-static const double AS5048A_MAX_VALUE = 8191.0;
+static const float AS5048A_MAX_VALUE = 8191.0f;
 static const uint16_t AS5048A_ERROR_BIT = 0x4000;
-
 
 HAL_StatusTypeDef AS5048A::spi_transmit_command(uint16_t command) {
     return HAL_SPI_Transmit(spi, (uint8_t*)&command, 1, 1000);
@@ -58,6 +57,8 @@ uint16_t AS5048A::read(AS5048ARegister reg) {
     HAL_StatusTypeDef transmit_status = spi_transmit_command(command);
     // TODO? handle status
     end_transaction();
+
+    CS_delay();
 
     start_transaction();
     uint16_t response = spi_transmit_command_receive((uint16_t)AS5048ARegister::NOP);

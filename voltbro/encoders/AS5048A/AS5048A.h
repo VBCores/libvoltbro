@@ -55,12 +55,10 @@ public:
         {};
 
     __attribute__((always_inline)) inline void start_transaction() {
-        CS_delay();
         HAL_GPIO_WritePin(SPI_SS_GPIOx, SPI_SS, GPIO_PIN_RESET);
     }
 
     __attribute__((always_inline)) inline void end_transaction() {
-        CS_delay();
         HAL_GPIO_WritePin(SPI_SS_GPIOx, SPI_SS, GPIO_PIN_SET);
     }
 

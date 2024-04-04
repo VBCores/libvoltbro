@@ -103,12 +103,5 @@ void BLDCController::detect_stall(double passed_time_abs) {
     }
 }
 
-void BLDCController::regulate(float _) {
-    callback();
-    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, DQs[0]);
-    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, DQs[1]);
-    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, DQs[2]);
-}
-
 #endif
 #endif
