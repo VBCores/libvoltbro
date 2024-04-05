@@ -33,7 +33,7 @@ handle_hall_data:
 #endif
         int16_t new_pwm = local_pwm;
 
-        if (point_type == SetPointType::VELOCITY) {
+        if (control_config.point_type == SetPointType::VELOCITY) {
             float current = fabsf(get_current(inverter, first));
             float I_err = current - drive_info.max_current;
             if (I_err > 0) {
@@ -41,7 +41,7 @@ handle_hall_data:
             }
             else {
                 speed_error = control_config.velocity_target - shaft_velocity;
-                control_signal = control_config.velocity_regulator.regulation(speed_error, passed_time_abs);
+                control_signal = control_config.main_regulator.regulation(speed_error, passed_time_abs);
             }
             // PWM guards
             const float max_change_per_sample = control_config.max_PWM_per_s * control_config.sampling_interval;
@@ -57,7 +57,7 @@ handle_hall_data:
 
             new_pwm += pwm_diff;
         }
-        else if (point_type == SetPointType::VOLTAGE) {
+        else if (control_config.point_type == SetPointType::VOLTAGE) {
             new_pwm = full_pwm / drive_info.supply_voltage * control_config.voltage_target;
         }
 

@@ -12,6 +12,7 @@ private:
     AS5048A encoder;
     float T;
     float elec_angle = 0;
+    float shaft_torque = 0;
 
     void apply_kalman();
     void update_angle();
@@ -54,6 +55,10 @@ public:
         HAL_TIM_PWM_Start(htim, TIM_CHANNEL_3); // C-phase
     }
     void regulate(float _ = 0) override;
+
+    float get_torque() const {
+        return shaft_torque;
+    }
 };
 
 

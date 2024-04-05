@@ -3,7 +3,7 @@
 
 #include "voltbro/encoders/generic.h"
 #include "voltbro/dsp/low_pass_filter.hpp"
-#ifndef ARM_MATH
+#ifndef ARM_MATH_CM4
 constexpr float PI = 3.14159265359;
 #endif
 

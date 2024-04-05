@@ -13,6 +13,8 @@
 #include "inverter.hpp"
 #include "../motor_commons.h"
 
+enum class SetPointType { VELOCITY, TORQUE, POSITION, VOLTAGE };
+
 enum class DrivePhase: uint8_t { PHASE_A = 0, PHASE_B = 1, PHASE_C = 2 };
 
 struct ControlConfig {
@@ -23,8 +25,12 @@ struct ControlConfig {
     float stall_timeout;
     float stall_tolerance;
 
+    SetPointType point_type;
     float velocity_target = 0;
+    float torque_target = 0;
+    float position_target = 0;
     float voltage_target = 0;
+
     float current_limit;
     float user_current_limit;
 
@@ -33,14 +39,15 @@ struct ControlConfig {
     float PWM_mult = 1;
     uint16_t max_PWM_per_s = 0;
 
-    PIDRegulator velocity_regulator;
-    PIDRegulator electric_regulator;
+    PIDRegulator main_regulator;
+    PIDRegulator aux_regulator;
 };
 
 struct DriveInfo {
     const float torque_const;
     const float speed_const;
     float max_current;
+    float max_torque;
     float stall_current;
     const float supply_voltage;
 

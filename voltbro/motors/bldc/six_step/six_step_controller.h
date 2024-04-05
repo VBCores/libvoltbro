@@ -7,18 +7,14 @@
 
 #include "../bldc.h"
 
-enum class SetPointType { VELOCITY, VOLTAGE };
-
 class SixStepController: public BLDCController {
 private:
     HallSensor& hall_sensor;
-    const SetPointType point_type;
 
     const float T;  // control loop period, sec
 public:
     SixStepController(
         float T,
-        SetPointType point_type,
         DriveInfo&& drive_info,
         ControlConfig&& control_config,
         TIM_HandleTypeDef* htim,
@@ -32,7 +28,6 @@ public:
             hadc
         ),
         hall_sensor(hall_sensor),
-        point_type(point_type),
         T(T)
     {}
 
