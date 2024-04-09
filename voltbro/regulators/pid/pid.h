@@ -21,7 +21,7 @@ public:
     // expect copy-elision
     explicit PIDRegulator(const PIDConfig&& config) : config(std::move(config)) {}
 
-    float regulation(float error, float dt);
+    float regulation(float error, float dt, bool zero_in_threshold=true);
 
     void update_config(PIDConfig&& new_config) {
         config = new_config;

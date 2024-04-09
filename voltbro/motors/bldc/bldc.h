@@ -32,7 +32,8 @@ struct ControlConfig {
     float voltage_target = 0;
 
     float current_limit;
-    float user_current_limit;
+    float user_current_limit = 0;
+    float user_torque_limit = 0;
 
     float speed_mult = 1;
     float electric_mult = 1;
@@ -67,6 +68,7 @@ protected:
 
     arm_atomic(float) shaft_angle;
     arm_atomic(float) shaft_velocity;
+    arm_atomic(float) shaft_torque = 0;
     arm_atomic(bool) _is_on;
     arm_atomic(bool) is_stalling;
     uint16_t DQs[3] = {0, 0, 0};
@@ -85,10 +87,68 @@ public:
         inverter(hadc),
         full_pwm(htim->Instance->ARR),
         htim(htim)
-    {}
+    {
+        assert_param(
+            control_config.user_torque_limit <= drive_info.max_torque &&
+            control_config.user_torque_limit >= 0
+        );
+        assert_param(
+            control_config.user_current_limit <= drive_info.max_current &&
+            control_config.user_current_limit >= 0
+        );
+
+        if (is_close(control_config.user_torque_limit, 0)) {
+            control_config.user_torque_limit = drive_info.max_torque;
+        }
+        if (is_close(control_config.user_current_limit, 0)) {
+            control_config.user_current_limit = drive_info.max_current;
+        }
+
+        control_config.current_limit = control_config.user_current_limit;
+    }
+
+    inline bool set_torque_limit(float torque_limit) {
+        if (torque_limit > drive_info.max_torque || torque_limit <= 0) {
+            return false;
+        }
+        control_config.user_torque_limit = torque_limit;
+        return true;
+    }
+    inline bool set_current_limit(float current_limit) {
+        if (current_limit > drive_info.max_current || current_limit <= 0) {
+            return false;
+        }
+        control_config.user_current_limit = current_limit;
+        return true;
+    }
+    inline bool set_angle_point(float angle) {
+        if (angle < 0 || angle > pi2) {
+            return false;
+        }
+        control_config.position_target = angle;
+        return true;
+
+    }
+    inline bool set_velocity_point(float velocity) {
+        control_config.velocity_target = velocity;
+        return true;
+    }
+    inline bool set_torque_point(float torque) {
+        control_config.torque_target = torque;
+        return true;
+    }
+    const ControlConfig& get_config() const {
+        return control_config;
+    }
+    const DriveInfo& get_info() const {
+        return drive_info;
+    }
+    const Inverter& get_inverter() const {
+        return inverter;
+    }
 
     void detect_stall(double passed_time_abs);
-    void quit_stall() {
+    inline void quit_stall() {
         control_config.current_limit = control_config.user_current_limit;
         is_stalling = false;
     }

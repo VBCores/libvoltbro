@@ -7,7 +7,7 @@
 #include "stm32g4xx_ll_cordic.h"
 #include "voltbro/math/transform.h"
 
-int lookup_table[1024] = {-16,-17,-18,-18,-18,-19,-19,-18,-17,-16,-16,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,-1,0,0,0,0,1,1,1,1,1,0,0,0,0,-1,-2,-2,-3,-3,-5,-6,-7,-8,-8,-10,-11,-12,-13,-14,-14,-15,-17,-18,-18,-19,-19,-20,-21,-21,-21,-21,-21,-22,-22,-21,-21,-21,-20,-20,-20,-19,-18,-18,-17,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-7,-6,-6,-5,-5,-4,-4,-4,-4,-4,-3,-4,-4,-5,-5,-5,-5,-6,-7,-7,-8,-8,-8,-9,-10,-10,-11,-11,-11,-12,-13,-13,-13,-13,-14,-15};
+int lookup_table[128] = {-16,-19,-22,-24,-25,-25,-25,-23,-22,-20,-18,-17,-15,-14,-13,-12,-12,-12,-12,-12,-12,-13,-14,-15,-17,-18,-20,-21,-22,-24,-25,-26,-27,-28,-29,-30,-30,-30,-30,-30,-29,-28,-27,-25,-24,-22,-20,-18,-17,-15,-14,-12,-11,-9,-8,-7,-7,-6,-6,-6,-7,-7,-8,-8,-9,-9,-10,-10,-10,-9,-8,-8,-6,-5,-3,-1,0,2,4,6,9,11,12,14,15,15,15,15,14,13,11,10,8,6,3,1,0,-1,-3,-4,-6,-6,-7,-7,-6,-5,-4,-3,-1,0,1,3,4,5,5,6,5,4,3,1,0,-1,-3,-5,-7,-9,-11,-13};
 
 void FOC::update_angle() {
     encoder.update_value();
@@ -89,92 +89,117 @@ void FOC::regulate(float _) {
     update_angle();
     apply_kalman();
 
-    // calculate sin and cos of electrical angle with the help of CORDIC.
-    // convert electrical angle from float to q31. electrical theta should be [-pi, pi]
-    int32_t ElecTheta_q31 = (int32_t)((elec_angle / PI - 1.0f) * 2147483648.0f);
-    // load angle value into CORDIC. Input value is in PIs!
-    LL_CORDIC_WriteData(CORDIC, ElecTheta_q31);
+    switch (mode) {
+        case FOCMode::NORMAL: {
+            // calculate sin and cos of electrical angle with the help of CORDIC.
+            // convert electrical angle from float to q31. electrical theta should be [-pi, pi]
+            int32_t ElecTheta_q31 = (int32_t)((elec_angle / PI - 1.0f) * 2147483648.0f);
+            // load angle value into CORDIC. Input value is in PIs!
+            LL_CORDIC_WriteData(CORDIC, ElecTheta_q31);
 
-    static float I_d_integral = 0.0f;
-    static float I_q_integral = 0.0f;
+            static float I_d_integral = 0.0f;
+            static float I_q_integral = 0.0f;
 
-    int32_t cosOutput = (int32_t)LL_CORDIC_ReadData(CORDIC); // Read cosine
-    int32_t sinOutput = (int32_t)LL_CORDIC_ReadData(CORDIC); // Read sine
+            int32_t cosOutput = (int32_t)LL_CORDIC_ReadData(CORDIC);  // Read cosine
+            int32_t sinOutput = (int32_t)LL_CORDIC_ReadData(CORDIC);  // Read sine
 
-    // the values are negative to level out [-pi, pi] representation of electrical angle at the CORDIC input
-    float c = -(float32_t)cosOutput / 2147483648.0f; // convert to float from q31
-    float s = -(float32_t)sinOutput / 2147483648.0f; // convert to float from q31
+            // the values are negative to level out [-pi, pi] representation of electrical angle at the CORDIC input
+            float c = -(float32_t)cosOutput / 2147483648.0f;  // convert to float from q31
+            float s = -(float32_t)sinOutput / 2147483648.0f;  // convert to float from q31
 
-    // LPF for motor current
+            // LPF for motor current
 #ifndef DEBUG
-    static float I_D = 0;
-    static float I_Q = 0;
+            static float I_D = 0;
+            static float I_Q = 0;
 #endif
-    float tempD = I_D;
-    float tempQ = I_Q;
-    dq0(s, c, inverter.get_A(), inverter.get_B(), inverter.get_C(), &tempD, &tempQ);    //dq0 transform on currents
-    I_D = I_D - (0.0925f * (I_D - tempD));
-    I_Q = I_Q - (0.0925f * (I_Q - tempQ));
+            float tempD = I_D;
+            float tempQ = I_Q;
+            // dq0 transform on currents
+            dq0(s, c, inverter.get_A(), inverter.get_B(), inverter.get_C(), &tempD, &tempQ);
+            I_D = I_D - (0.0925f * (I_D - tempD));
+            I_Q = I_Q - (0.0925f * (I_Q - tempQ));
 
-    shaft_torque = I_Q * drive_info.torque_const * (float)drive_info.common.gear_ratio;
+            shaft_torque = I_Q * drive_info.torque_const * (float)drive_info.common.gear_ratio;
 
-    float i_d_set = 0.0f;
-    float i_q_set = 1.0f / drive_info.torque_const;
-    switch (control_config.point_type) {
-        case SetPointType::VELOCITY:
-            i_q_set *=  control_config.main_regulator.regulation(control_config.velocity_target - shaft_velocity, T);
+            float i_d_set = 0.0f;
+            float i_q_set = -1.0f / drive_info.torque_const;
+            switch (control_config.point_type) {
+                case SetPointType::VELOCITY:
+                    i_q_set *= control_config.main_regulator.regulation(
+                        control_config.velocity_target - shaft_velocity,
+                        T
+                    );
+                    break;
+                case SetPointType::POSITION:
+                    i_q_set *= control_config.aux_regulator.regulation(
+                        control_config.position_target - shaft_angle,
+                        T
+                    );
+                    break;
+                case SetPointType::TORQUE:
+                    i_q_set *= control_config.torque_target / (float)drive_info.common.gear_ratio;
+                    break;
+                default:
+                    Error_Handler();
+            }
+
+            if (abs(i_q_set) > drive_info.max_torque) {
+                i_q_set = copysign(drive_info.max_torque, i_q_set);
+            }
+            // absolute limit on currents defined by the hardware safe operation region
+            if (abs(i_q_set) > 30.0f) {
+                i_q_set = copysign(30.0f, i_q_set);
+            }
+
+            float i_d_error = i_d_set - I_D;
+            float i_q_error = i_q_set - I_Q;
+
+            I_d_integral += 0.1f * 0.0455f * i_d_error;
+            I_q_integral += 0.1f * 0.0455f * i_q_error;
+
+            I_d_integral =
+                fmaxf(fminf(I_d_integral, 1.0f * inverter.get_busV()), -1.0f * inverter.get_busV());
+            I_q_integral =
+                fmaxf(fminf(I_q_integral, 1.0f * inverter.get_busV()), -1.0f * inverter.get_busV());
+
+            float V_d = 1.0f * i_d_error + I_d_integral;
+            float V_q = 1.0f * i_q_error + I_q_integral;
+
+            limit_norm(&V_d, &V_q, 1.0f * inverter.get_busV());
+
+            float v_u = 0, v_v = 0, v_w = 0;
+            float dtc_u = 0, dtc_v = 0, dtc_w = 0;
+
+            // inverse dq0 transform on voltages
+            abc(s, c, V_d, V_q, &v_u, &v_v, &v_w);
+            // space vector modulation
+            svm(inverter.get_busV(), v_u, v_v, v_w, &dtc_u, &dtc_v, &dtc_w);
+
+            DQs[0] = (uint16_t)(2000.0f * dtc_u);
+            DQs[1] = (uint16_t)(2000.0f * dtc_v);
+            DQs[2] = (uint16_t)(2000.0f * dtc_w);
+        }
             break;
-        case SetPointType::POSITION:
-            // Still needs debugging, works unreliably
-            i_q_set *=  control_config.aux_regulator.regulation(control_config.position_target - shaft_angle, T);
+        case FOCMode::PI_CURRENT: {
+            float set_angle = 1.0f * PI;
+            float s = arm_sin_f32(set_angle);
+            float c = arm_cos_f32(set_angle);
+
+            float V_d = -0.25f;
+            float V_q = 0.0f;
+
+            float DVA = 0;
+            float DVB = 0;
+            float DVC = 0;
+
+            abc(s, c, V_d, V_q, &DVA, &DVB, &DVC);
+
+            DQs[0] = 1000 + (int16_t)(1000.0f * DVA);
+            DQs[1] = 1000 + (int16_t)(1000.0f * DVB);
+            DQs[2] = 1000 + (int16_t)(1000.0f * DVC);
+        }
             break;
-        case SetPointType::TORQUE:
-            i_q_set *=  control_config.torque_target / (float)drive_info.common.gear_ratio;
-            break;
-        default:
-            Error_Handler();
     }
-
-    if(i_q_set > drive_info.max_torque) {
-        i_q_set = drive_info.max_torque;
-    }
-    else if(i_q_set < -drive_info.max_torque) {
-        i_q_set = -drive_info.max_torque;
-    }
-
-    // absolute limit on currents defined by the hardware safe operation region
-    if(i_q_set > 30.0f) {
-        i_q_set = 30.0f;
-    }
-    else if(i_q_set < -30.0f) {
-        i_q_set = -30.0f;
-    }
-
-    float i_d_error = i_d_set - I_D;
-    float i_q_error = i_q_set - I_Q;
-
-    I_d_integral += 0.1f*0.0455f*i_d_error;
-    I_q_integral += 0.1f*0.0455f*i_q_error;
-
-    I_d_integral = fmaxf(fminf(I_d_integral, 1.0f*inverter.get_busV()), - 1.0f*inverter.get_busV());
-    I_q_integral = fmaxf(fminf(I_q_integral, 1.0f*inverter.get_busV()), - 1.0f*inverter.get_busV());
-
-    float V_d = 1.0f*i_d_error + I_d_integral;
-    float V_q = 1.0f*i_q_error + I_q_integral;
-
-    limit_norm(&V_d, &V_q, 1.0f*inverter.get_busV());
-
-    float v_u = 0, v_v = 0, v_w = 0;
-    float dtc_u = 0, dtc_v = 0, dtc_w = 0;
-
-    //inverse dq0 transform on voltages
-    abc(s, c, V_d, V_q, &v_u, &v_v, &v_w);
-    //space vector modulation
-    svm(inverter.get_busV(), v_u, v_v, v_w, &dtc_u, &dtc_v, &dtc_w);
-
-    DQs[0] = (uint16_t)(2000.0f*dtc_u);
-    DQs[1] = (uint16_t)(2000.0f*dtc_v);
-    DQs[2] = (uint16_t)(2000.0f*dtc_w);
 
     set_pwm();
 }

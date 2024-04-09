@@ -7,12 +7,17 @@
 
 #include "voltbro/encoders/AS5048A/AS5048A.h"
 
+enum class FOCMode {
+    NORMAL,
+    PI_CURRENT
+};
+
 class FOC: public BLDCController  {
 private:
+    const FOCMode mode;
     AS5048A encoder;
     float T;
     float elec_angle = 0;
-    float shaft_torque = 0;
 
     void apply_kalman();
     void update_angle();
@@ -31,17 +36,17 @@ public:
         AS5048A&& encoder,
         TIM_HandleTypeDef* htim,
         ADC_HandleTypeDef* hadc,
-        float angle_filter = 1,
-        float speed_filter = 1
+        FOCMode mode = FOCMode::NORMAL
     ):
         BLDCController(
             std::forward<DriveInfo>(drive_info),
             std::forward<ControlConfig>(control_config),
             htim,
             hadc,
-            angle_filter,
-            speed_filter
+            1,
+            1
         ),
+        mode(mode),
         encoder(std::forward<AS5048A>(encoder)),
         T(T)
         {}
@@ -58,6 +63,10 @@ public:
 
     float get_torque() const {
         return shaft_torque;
+    }
+
+    const AS5048A& get_encoder() {
+        return encoder;
     }
 };
 

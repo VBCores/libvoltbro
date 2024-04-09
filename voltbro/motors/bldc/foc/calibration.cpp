@@ -56,7 +56,7 @@ void FOC::calibrate() {
     old_angle = shaft_angle;
     // rotate in positive direction until you make full mechanical rotation
     // f_elec_angle < 2*PI
-    while( ( old_angle - shaft_angle ) < PI || HAL_GetTick() < timestamp + 100 ) {
+    while( (old_angle - shaft_angle) < PI || HAL_GetTick() < timestamp + 100 ) {
         old_angle = shaft_angle;
 
         uint16_t index = (uint16_t)( (float)cal_buf_len*shaft_angle / (2.0f*PI) );
@@ -95,7 +95,7 @@ void FOC::calibrate() {
     timestamp = HAL_GetTick();
     old_angle = shaft_angle;
     // rotate in negative direction until you return to the begining
-    while ( ( old_angle - shaft_angle ) > -PI || HAL_GetTick() < timestamp + 100 ) {
+    while ( (old_angle - shaft_angle) > -PI || HAL_GetTick() < timestamp + 100 ) {
         old_angle = shaft_angle;
 
         uint16_t index = (uint16_t)( (float)cal_buf_len*shaft_angle / (2.0f*PI) );

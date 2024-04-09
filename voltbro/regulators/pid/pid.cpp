@@ -9,8 +9,8 @@
 #include <math.h>
 #endif
 
-float PIDRegulator::regulation(float error, float dt) {
-    if (fabs(error) <= config.tolerance) {
+float PIDRegulator::regulation(float error, float dt, bool zero_in_threshold) {
+    if (zero_in_threshold && fabs(error) <= config.tolerance) {
         signal = 0;
         integral_error = 0;
         return 0;
@@ -29,9 +29,9 @@ float PIDRegulator::regulation(float error, float dt) {
     integral_error = new_integral_error;
 
     signal = config.multiplier * (
-                 config.p_gain * error + config.i_gain * integral_error +
-                 config.d_gain * error_diff / dt
-             );
+         config.p_gain * error + config.i_gain * integral_error +
+         config.d_gain * error_diff / dt
+     );
 
     return signal;
 }
