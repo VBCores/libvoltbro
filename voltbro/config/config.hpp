@@ -31,7 +31,7 @@ public:
 
     uint16_t get_id() {
         uint16_t result = 0;
-        for (int i = 0; i < pins.size(); i++) {
+        for (size_t i = 0; i < pins.size(); i++) {
             result += pin_state(pins[i]) << i;
         }
         return result;

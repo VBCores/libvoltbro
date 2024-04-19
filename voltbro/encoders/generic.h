@@ -17,12 +17,22 @@ protected:
     arm_atomic(int) revolutions;
     arm_atomic(encoder_data) value = 0;
 public:
-    const bool is_electrical = false;
-    const encoder_data electric_offset = 0;
-    const bool is_inverted = false;
+    const int electric_offset = 0;
     const encoder_data CPR;
+    const bool is_electrical = false;
+    const bool is_inverted = false;
 
-    GenericEncoder(encoder_data CPR, bool is_inverted = false): CPR(CPR), is_inverted(is_inverted) {};
+    GenericEncoder(
+        encoder_data CPR,
+        bool is_inverted = false,
+        bool is_electrical = false,
+        int electric_offset = 0
+    ):
+        electric_offset(electric_offset),
+        CPR(CPR),
+        is_electrical(is_electrical),
+        is_inverted(is_inverted)
+        {};
 
     virtual void update_value() = 0;
     virtual inline encoder_data get_value() const = 0;

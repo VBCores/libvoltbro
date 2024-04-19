@@ -3,6 +3,9 @@
 
 #include "voltbro/encoders/generic.h"
 #include "voltbro/dsp/low_pass_filter.hpp"
+#ifndef ARM_MATH_CM4
+constexpr float PI = 3.14159265359;
+#endif
 
 struct CommonDriverConfig {
     uint8_t ppairs = 0;
@@ -27,9 +30,7 @@ public:
     ) const;
     float calculate_speed(const float shaft_angle, const float dt) const;
 
-    virtual void regulate(float dt) = 0;
-    virtual void update_angle(GenericEncoder& speed_encoder) = 0;
-    virtual void update_speed(const float dt) = 0;
+    virtual void regulate(float dt = 0) = 0;
 };
 
 #endif
