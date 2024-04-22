@@ -18,6 +18,7 @@ private:
     AS5048A encoder;
     float T;
     float elec_angle = 0;
+    const std::array<int, 128>& lookup_table;
 
     void apply_kalman();
     void update_angle();
@@ -36,6 +37,7 @@ public:
         AS5048A&& encoder,
         TIM_HandleTypeDef* htim,
         ADC_HandleTypeDef* hadc,
+        const std::array<int, 128>& lookup_table,
         FOCMode mode = FOCMode::NORMAL
     ):
         BLDCController(
@@ -48,7 +50,8 @@ public:
         ),
         mode(mode),
         encoder(std::forward<AS5048A>(encoder)),
-        T(T)
+        T(T),
+        lookup_table(lookup_table)
         {}
 
     void init() {
