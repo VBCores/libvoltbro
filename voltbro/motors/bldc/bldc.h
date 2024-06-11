@@ -26,10 +26,7 @@ struct ControlConfig {
     float stall_tolerance;
 
     SetPointType point_type;
-    float velocity_target = 0;
-    float torque_target = 0;
-    float position_target = 0;
-    float voltage_target = 0;
+    float target = 0;
 
     float current_limit;
     float user_current_limit = 0;
@@ -125,16 +122,23 @@ public:
         if (angle < 0 || angle > pi2) {
             return false;
         }
-        control_config.position_target = angle;
+        control_config.point_type = SetPointType::POSITION;
+        control_config.target = angle;
         return true;
-
     }
     inline bool set_velocity_point(float velocity) {
-        control_config.velocity_target = velocity;
+        control_config.point_type = SetPointType::VELOCITY;
+        control_config.target = velocity;
         return true;
     }
     inline bool set_torque_point(float torque) {
-        control_config.torque_target = torque;
+        control_config.point_type = SetPointType::TORQUE;
+        control_config.target = torque;
+        return true;
+    }
+    inline bool set_voltage_point(float voltage) {
+        control_config.point_type = SetPointType::VOLTAGE;
+        control_config.target = voltage;
         return true;
     }
     const ControlConfig& get_config() const {

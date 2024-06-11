@@ -12,13 +12,15 @@ enum class FOCMode {
     PI_CURRENT
 };
 
+using calibration_array_t = const std::array<int, 1024>;
+
 class FOC: public BLDCController  {
 private:
     const FOCMode mode;
     AS5048A encoder;
     float T;
     float elec_angle = 0;
-    const std::array<int, 128>& lookup_table;
+    calibration_array_t& lookup_table;
 
     void apply_kalman();
     void update_angle();
@@ -37,7 +39,7 @@ public:
         AS5048A&& encoder,
         TIM_HandleTypeDef* htim,
         ADC_HandleTypeDef* hadc,
-        const std::array<int, 128>& lookup_table,
+        calibration_array_t& lookup_table,
         FOCMode mode = FOCMode::NORMAL
     ):
         BLDCController(

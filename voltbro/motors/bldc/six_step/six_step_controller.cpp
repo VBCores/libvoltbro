@@ -40,7 +40,7 @@ handle_hall_data:
                 control_signal = -I_err * control_config.electric_mult;
             }
             else {
-                speed_error = control_config.velocity_target - shaft_velocity;
+                speed_error = control_config.target - shaft_velocity;
                 control_signal = control_config.main_regulator.regulation(speed_error, passed_time_abs);
             }
             // PWM guards
@@ -58,7 +58,7 @@ handle_hall_data:
             new_pwm += pwm_diff;
         }
         else if (control_config.point_type == SetPointType::VOLTAGE) {
-            new_pwm = full_pwm / drive_info.supply_voltage * control_config.voltage_target;
+            new_pwm = full_pwm / drive_info.supply_voltage * control_config.target;
         }
 
         const uint32_t MAX_PWM = full_pwm * 0.95f;
