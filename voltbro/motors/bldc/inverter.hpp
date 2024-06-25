@@ -2,6 +2,7 @@
 
 #if defined(STM32G474xx) || defined(STM32_G)
 #include "stm32g4xx_hal.h"
+#ifdef HAL_ADC_MODULE_ENABLED
 #include <cstdint>
 
 class Inverter {
@@ -63,4 +64,5 @@ public:
     }
 };
 
+#endif
 #endif

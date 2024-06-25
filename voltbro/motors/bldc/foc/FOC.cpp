@@ -1,5 +1,5 @@
 #include "FOC.h"
-#ifdef HAL_TIM_MODULE_ENABLED
+#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_CORDIC_MODULE_ENABLED)
 
 #include "arm_math.h"
 

@@ -1,5 +1,5 @@
 #include "six_step_controller.h"
-#ifdef HAL_TIM_MODULE_ENABLED
+#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED)
 
 int16_t local_pwm = 0;
 
