@@ -20,7 +20,7 @@ public:
             BasicServo(htim, channel, 1000)
     {}
 
-    void set_pulse(float pulse) {
+    virtual void set_pulse(float pulse) {
         if (!_is_on) {
             // Защита от дурака
             __HAL_TIM_SET_COMPARE(htim, channel, min_phase);
