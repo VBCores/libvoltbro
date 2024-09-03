@@ -14,7 +14,7 @@ protected:
      * https://developer.arm.com/documentation/dui0375/g/C-and-C---Implementation-Details/Basic-data-types-in-ARM-C-and-C-- or https://stackoverflow.com/a/52785864
      * short version: all reads/writes to var are atomic if it is "self"-aligned (1/2/4 byte)
      * (Please, copy this comment to all variables that can be accessed concurrently - as a warning and a reminder) */
-    arm_atomic(int) revolutions;
+    arm_atomic(int) revolutions = 0;
     arm_atomic(encoder_data) value = 0;
 public:
     const int electric_offset = 0;

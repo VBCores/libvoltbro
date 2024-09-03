@@ -20,18 +20,29 @@ void FOC::update_angle() {
         offset_value += encoder.CPR;
     }
 
-    shaft_angle = offset_value * (pi2 / (float)encoder.CPR);
+    raw_elec_angle = offset_value * (pi2 / (float)encoder.CPR);
+
+    const float rads_per_rev = pi2 / drive_info.common.gear_ratio;
+    int revolutions = encoder.get_revolutions() % drive_info.common.gear_ratio;
+    float base_angle = 0;
+    if (revolutions < 0) {
+        base_angle = (drive_info.common.gear_ratio + revolutions) * rads_per_rev;
+    }
+    else {
+        base_angle = revolutions * rads_per_rev;
+    }
+    shaft_angle = base_angle + (raw_elec_angle / drive_info.common.gear_ratio);
 }
 
 void FOC::apply_kalman() {
     static float prev_angle = -pi2 - 2;
 
     if (prev_angle < (-pi2 - 1)) {
-        prev_angle = shaft_angle;
+        prev_angle = raw_elec_angle;
         return;
     }
 
-    float travel = shaft_angle - prev_angle;
+    float travel = raw_elec_angle - prev_angle;
     if (travel < -PI) {
         travel += pi2;
     } else if (travel > PI) {
@@ -73,7 +84,7 @@ void FOC::apply_kalman() {
 
     const float ab = pi2 / (float)drive_info.common.ppairs;
     elec_angle = (float)drive_info.common.ppairs * mfmod(nTh, ab);
-    shaft_velocity = nW;
+    shaft_velocity = nW / drive_info.common.gear_ratio;
 
     prev_angle = nTh;
 }
@@ -183,6 +194,7 @@ void FOC::regulate(float _) {
                 V_q = i_q_error + I_q_integral;
             }
             else {
+                V_d = 0;
                 V_q = -control_config.target;
             }
             limit_norm(&V_d, &V_q, inverter.get_busV());

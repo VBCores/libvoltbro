@@ -24,9 +24,9 @@ void FOC::set_windings_calibration() {
 }
 
 void FOC::reset_to_zero(float d_delta) {
-    float old_angle = shaft_angle;
-    while((old_angle - shaft_angle) < PI) {
-        old_angle = shaft_angle;
+    float old_angle = raw_elec_angle;
+    while((old_angle - raw_elec_angle) < PI) {
+        old_angle = raw_elec_angle;
         calib_elec_angle += d_delta;
         set_windings_calibration();
         HAL_Delay(5);
@@ -53,14 +53,14 @@ void FOC::calibrate() {
     float d_offset = calib_elec_angle;
 
     uint32_t timestamp = HAL_GetTick();
-    old_angle = shaft_angle;
+    old_angle = raw_elec_angle;
     // rotate in positive direction until you make full mechanical rotation
     // f_elec_angle < 2*PI
-    while( (old_angle - shaft_angle) < PI || HAL_GetTick() < timestamp + 100 ) {
-        old_angle = shaft_angle;
+    while( (old_angle - raw_elec_angle) < PI || HAL_GetTick() < timestamp + 100 ) {
+        old_angle = raw_elec_angle;
 
-        uint16_t index = (uint16_t)( (float)cal_buf_len*shaft_angle / (2.0f*PI) );
-        CalBuf_Fwd[ index ] = ( calib_elec_angle - d_offset ) / drive_info.common.ppairs - shaft_angle;
+        uint16_t index = (uint16_t)( (float)cal_buf_len*raw_elec_angle / (2.0f*PI) );
+        CalBuf_Fwd[ index ] = ( calib_elec_angle - d_offset ) / drive_info.common.ppairs - raw_elec_angle;
 
         // current algorithm sometimes leaves empty values in calibration buffer
         // this part fills the upcoming array member with the current value, which is overwritten in case of successful new reading
@@ -93,13 +93,13 @@ void FOC::calibrate() {
     d_offset = calib_elec_angle - (2.0f*PI) * drive_info.common.ppairs;
 
     timestamp = HAL_GetTick();
-    old_angle = shaft_angle;
+    old_angle = raw_elec_angle;
     // rotate in negative direction until you return to the begining
-    while ( (old_angle - shaft_angle) > -PI || HAL_GetTick() < timestamp + 100 ) {
-        old_angle = shaft_angle;
+    while ( (old_angle - raw_elec_angle) > -PI || HAL_GetTick() < timestamp + 100 ) {
+        old_angle = raw_elec_angle;
 
-        uint16_t index = (uint16_t)( (float)cal_buf_len*shaft_angle / (2.0f*PI) );
-        CalBuf_Bckwd[index] = (calib_elec_angle - d_offset) / drive_info.common.ppairs - shaft_angle;
+        uint16_t index = (uint16_t)( (float)cal_buf_len*raw_elec_angle / (2.0f*PI) );
+        CalBuf_Bckwd[index] = (calib_elec_angle - d_offset) / drive_info.common.ppairs - raw_elec_angle;
 
         // current algorithm sometimes leaves empty values in calibration buffer
         // this part fills the upcoming array memmber with the current value, which is overwritten in case of successfull new reading

@@ -19,6 +19,7 @@ private:
     const FOCMode mode;
     AS5048A encoder;
     float T;
+    float raw_elec_angle = 0;
     float elec_angle = 0;
     calibration_array_t& lookup_table;
 
