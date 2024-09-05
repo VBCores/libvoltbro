@@ -93,6 +93,9 @@ void FOC::apply_kalman() {
 #define IS_GLOBAL_CONTROL_VARIABLES
 static float I_D = 0;
 static float I_Q = 0;
+float V_d, V_q;
+volatile float elec_angle_glob = 0;
+volatile float mech_angle_glob = 0;
 #endif
 void FOC::regulate(float _) {
     inverter.update();
@@ -120,6 +123,8 @@ void FOC::regulate(float _) {
         }
             break;
         case FOCMode::NORMAL: {
+            elec_angle_glob = elec_angle;
+            mech_angle_glob = shaft_angle;
             // calculate sin and cos of electrical angle with the help of CORDIC.
             // convert electrical angle from float to q31. electrical theta should be [-pi, pi]
             int32_t ElecTheta_q31 = (int32_t)((elec_angle / PI - 1.0f) * 2147483648.0f);
@@ -133,13 +138,12 @@ void FOC::regulate(float _) {
             float c = -(float32_t)cosOutput / 2147483648.0f;  // convert to float from q31
             float s = -(float32_t)sinOutput / 2147483648.0f;  // convert to float from q31
 
-            float V_d, V_q;
-
-            // LPF for motor current
             #ifndef IS_GLOBAL_CONTROL_VARIABLES
+            float V_d, V_q;
             static float I_D = 0;
             static float I_Q = 0;
             #endif
+            // LPF for motor current
             float tempD = I_D;
             float tempQ = I_Q;
             // dq0 transform on currents
