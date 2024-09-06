@@ -7,6 +7,9 @@
 #include "stm32g4xx_ll_cordic.h"
 #include "voltbro/math/transform.h"
 
+#if defined(DEBUG) || defined(MONITOR)
+volatile float raw_elec_angle_glob = 0;
+#endif
 void FOC::update_angle() {
     encoder.update_value();
 
@@ -21,6 +24,9 @@ void FOC::update_angle() {
     }
 
     raw_elec_angle = offset_value * (pi2 / (float)encoder.CPR);
+    #if defined(DEBUG) || defined(MONITOR)
+        raw_elec_angle_glob = raw_elec_angle;
+    #endif
 
     const float rads_per_rev = pi2 / drive_info.common.gear_ratio;
     int revolutions = encoder.get_revolutions() % drive_info.common.gear_ratio;
@@ -58,13 +64,12 @@ void FOC::apply_kalman() {
      */
     // TODO: get acceleration from inverter?
     const float a = 0.0f; // expected acceleration, rad/s^2
-    const float g1 = 0.03f;
-    const float g2 = 7.5f;
-    const float g3 = 769.5f;
+    const float g1 = 0.015f;
+    const float g2 = 1.891f;
+    const float g3 = 98.47f;
     static float Th_hat = 0.0f; // Theta hat, rad
     static float W_hat = 0.0f; // Omega hat, rad/s
     static float E_hat = 0.0f; // Epsilon hat, rad/s^2
-    static float old_angle = 0.0f;
 
     // (11)
     float nTh = Th_hat + W_hat*T + (E_hat + a)*(T*T)/2.0f;
@@ -101,6 +106,10 @@ void FOC::regulate(float _) {
     inverter.update();
     update_angle();
     apply_kalman();
+    #if defined(DEBUG) || defined(MONITOR)
+        elec_angle_glob = elec_angle;
+        mech_angle_glob = shaft_angle;
+    #endif
 
     switch (mode) {
         case FOCMode::PI_CURRENT: {
@@ -123,8 +132,6 @@ void FOC::regulate(float _) {
         }
             break;
         case FOCMode::NORMAL: {
-            elec_angle_glob = elec_angle;
-            mech_angle_glob = shaft_angle;
             // calculate sin and cos of electrical angle with the help of CORDIC.
             // convert electrical angle from float to q31. electrical theta should be [-pi, pi]
             int32_t ElecTheta_q31 = (int32_t)((elec_angle / PI - 1.0f) * 2147483648.0f);
@@ -155,14 +162,14 @@ void FOC::regulate(float _) {
 
             shaft_torque = I_Q * drive_info.torque_const * (float)drive_info.common.gear_ratio;
 
-            float i_d_set = 0.0f;
-            float i_d_error = i_d_set - I_D;
-            static float I_d_integral = 0.0f;
-            I_d_integral += 0.1f * 0.0455f * i_d_error;  // TODO: remove magic numbers
-            I_d_integral = fmaxf(fminf(I_d_integral, inverter.get_busV()), -inverter.get_busV());
-            V_d = i_d_error + I_d_integral;
-
             if (control_config.point_type != SetPointType::VOLTAGE) {
+                float i_d_set = 0.0f;
+                float i_d_error = i_d_set - I_D;
+                static float I_d_integral = 0.0f;
+                I_d_integral += 0.1f * 0.0455f * i_d_error;  // TODO: remove magic numbers
+                I_d_integral = fmaxf(fminf(I_d_integral, inverter.get_busV()), -inverter.get_busV());
+                V_d = i_d_error + I_d_integral;
+
                 float i_q_set = -1.0f / drive_info.torque_const;
                 switch (control_config.point_type) {
                     case SetPointType::VELOCITY:

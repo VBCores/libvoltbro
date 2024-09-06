@@ -9,7 +9,7 @@ void FOC::set_windings_calibration() {
     float s = arm_sin_f32(calib_elec_angle);
     float c = arm_cos_f32(calib_elec_angle);
 
-    const float V_d = -0.2f;
+    const float V_d = -0.05f;
     const float V_q = 0.0f;
 
     float DVA, DVB, DVC;
