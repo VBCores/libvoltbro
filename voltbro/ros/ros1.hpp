@@ -23,8 +23,8 @@ private:
 public:
     virtual bool callback(typename T::Request&, typename T::Response&) = 0;
 
-    ServiceProvider(ros::NodeHandle& node, const std::string& service_name) {
-        service = node.advertiseService(service_name, &ServiceProvider::callback, this);
+    ServiceProvider(std::shared_ptr<ros::NodeHandle>& node, const std::string& service_name) {
+        service = node->advertiseService(service_name, &ServiceProvider::callback, this);
         ROS_INFO_STREAM("Providing service <" << service_name << ">");
     }
 };
