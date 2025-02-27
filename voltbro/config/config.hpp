@@ -2,16 +2,11 @@
 #if defined(STM32G474xx) || defined(STM32_G)
 
 #include <memory>
+#include <cstdint>
 
-#if defined(STM32G474xx) || defined(STM32_G)
 #include "stm32g4xx_hal.h"
-#else
-#include "stm32f4xx_hal.h"
-#endif
 
 #include "voltbro/utils.hpp"
-
-#include <cstdint>
 
 typedef struct {
     pin pin_num;

@@ -64,27 +64,8 @@ public:
         HAL_GPIO_WritePin(SPI_SS_GPIOx, SPI_SS, GPIO_PIN_SET);
     }
 
-    void update_value() override {
-        encoder_data new_value = get_angle();
+    void update_value() override;
 
-        if (value == (encoder_data)-1) {
-            value = new_value;
-            return;
-        }
-
-        int32_t diff = (int32_t)value - (int32_t)new_value;
-        const encoder_data half_cpr = CPR / 2;
-        if (abs(diff) > half_cpr) {
-            if (diff < 0) {
-                decr_revolutions();
-            }
-            else {
-                incr_revolutions();
-            }
-        }
-
-        value = new_value;
-    }
     inline encoder_data get_value() const override {
         return value;
     }

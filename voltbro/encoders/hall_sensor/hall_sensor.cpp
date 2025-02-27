@@ -14,9 +14,11 @@ HallSensor::HallSensor(
     pin pin_2,
     GPIO_TypeDef *pin_3_gpiox,
     pin pin_3,
-    std::array<EncoderStep, 6>&& sequence
+    std::array<EncoderStep, 6>&& sequence,
+    bool is_exti_trusted
 ):
     GenericEncoder(CPR, is_inverted, true),
+    IS_EXTI_TRUSTED(is_exti_trusted),
     pin_1_gpiox(pin_1_gpiox),
     pin_2_gpiox(pin_2_gpiox),
     pin_3_gpiox(pin_3_gpiox),
@@ -34,13 +36,12 @@ HallSensor::HallSensor(
 #ifdef DEBUG
 int8_t activated_pin;
 #endif
-constexpr bool TRUSTED_EXTI = false;
 bool HallSensor::handle_hall_channel(pin channel) {
 #ifndef DEBUG
     uint8_t activated_pin;
 #endif
 
-    if constexpr (TRUSTED_EXTI && channel != (uint16_t) -1) {
+    if (IS_EXTI_TRUSTED && channel != (uint16_t) -1) {
         if (pin_1 == channel) {
             activated_pin = 0;
         } else if (pin_2 == channel) {

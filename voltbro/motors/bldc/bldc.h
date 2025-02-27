@@ -6,11 +6,11 @@
 
 #include <cstdint>
 
-#include "voltbro/math/math_ops.h"
-#include "voltbro/regulators/pid/pid.h"
 #include "voltbro/utils.hpp"
+#include "voltbro/math/math_ops.hpp"
+#include "voltbro/math/regulators/pid.hpp"
 #include "voltbro/encoders/hall_sensor/hall_sensor.h"
-#include "inverter.hpp"
+#include "voltbro/devices/inverter.hpp"
 #include "../motor_commons.h"
 
 enum class SetPointType { VELOCITY, TORQUE, POSITION, VOLTAGE };

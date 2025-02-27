@@ -21,6 +21,8 @@ enum class EncoderStep: uint8_t {
 
 class HallSensor: public GenericEncoder {
 private:
+    const bool IS_EXTI_TRUSTED;
+
     int state_1;
     int state_2;
     int state_3;
@@ -49,7 +51,8 @@ public:
         pin pin_2,
         GPIO_TypeDef* pin_3_gpiox,
         pin pin_3,
-        std::array<EncoderStep, 6>&& sequence
+        std::array<EncoderStep, 6>&& sequence,
+        bool is_exti_trusted=false
     );
 
     EncoderStep get_step() const { return step; }

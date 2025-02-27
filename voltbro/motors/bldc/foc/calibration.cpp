@@ -1,7 +1,7 @@
 #include "FOC.h"
 #ifdef ENABLE_CALIBRATION
 
-#include "voltbro/math/transform.h"
+#include "voltbro/math/transform.hpp"
 
 static float calib_elec_angle = 0;
 

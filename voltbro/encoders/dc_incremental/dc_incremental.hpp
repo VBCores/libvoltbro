@@ -3,17 +3,23 @@
 #include "stm32g4xx_hal.h"
 #if defined(HAL_TIM_MODULE_ENABLED)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "arm_math.h"
+#ifdef __cplusplus
+}
+#endif
 
-#include "voltbro/utils.h"
+#include "voltbro/utils.hpp"
 #include "voltbro/encoders/generic.h"
 
 class DCIncrementalEncoder : public GenericEncoder {
 private:
+    const encoder_data offset_incr;
     const uint16_t half_cpr;
     TIM_HandleTypeDef* const encoder_tim;
     int32_t offset = 0;
-    const encoder_data offset_incr;
 
     /* WARNING! Explicitly specify alignment for guaranteed atomic reads and writes. Explanation:
      * https://developer.arm.com/documentation/dui0375/g/C-and-C---Implementation-Details/Basic-data-types-in-ARM-C-and-C-- or https://stackoverflow.com/a/52785864
@@ -27,12 +33,12 @@ public:
         bool is_inverted = false
     ):
         GenericEncoder(CPR, is_inverted),
-        encoder_tim(encoder_tim),
         offset_incr((UINT16_MAX + 1) % CPR),
-        half_cpr(CPR / 2)
+        half_cpr(CPR / 2),
+        encoder_tim(encoder_tim)
     {};
 
-    HAL_StatusTypeDef init() {
+    HAL_StatusTypeDef init() override {
         return HAL_TIM_Encoder_Start(encoder_tim,TIM_CHANNEL_ALL);
     }
 

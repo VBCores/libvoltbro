@@ -1,11 +1,17 @@
 #include "FOC.h"
 #if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_CORDIC_MODULE_ENABLED)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "arm_math.h"
+#ifdef __cplusplus
+}
+#endif
 
 #include "cordic.h"
 #include "stm32g4xx_ll_cordic.h"
-#include "voltbro/math/transform.h"
+#include "voltbro/math/transform.hpp"
 
 #if defined(DEBUG) || defined(MONITOR)
 volatile float raw_elec_angle_glob = 0;

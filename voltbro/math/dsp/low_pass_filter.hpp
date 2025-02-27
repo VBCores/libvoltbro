@@ -4,22 +4,21 @@
 #include "stm32g4xx.h"
 #endif
 
-#ifdef ARM_MATH
+#ifdef ARM_MATH_CM4
 #include <arm_math.h>
 #else
 #include <math.h>
 #endif
 
 #include "voltbro/utils.hpp"
-#include "voltbro/utils.h"
+#include "filter.hpp"
 
-
-class LowPassFilter {
+class LowPassFilter: public AbstractFilter {
 public:
     const float beta;
     LowPassFilter(float beta = 0.5): beta(beta) {};
 
-    inline float operator () (float prev_value, float new_value) const {
+    inline float operator () (float prev_value, float new_value) const override {
         if (is_close(beta, 1)) {
             return new_value;
         }

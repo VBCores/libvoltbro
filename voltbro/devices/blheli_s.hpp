@@ -5,9 +5,15 @@
 
 #include "array"
 #include "memory"
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "arm_math.h"
+#ifdef __cplusplus
+}
+#endif
 
-#include "basic.hpp"
+#include "voltbro/servos/basic.hpp"
 
 static constexpr uint32_t arming_delay = 20;
 static constexpr uint32_t arming_segments = 1 * 1000 / arming_delay;

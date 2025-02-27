@@ -1,7 +1,11 @@
+#pragma once
 #if defined(STM32G474xx) || defined(STM32_G)
 
-#include "Transform.h"
-#include "math_ops.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "math_ops.hpp"
 
 void Park(float alpha, float beta, float theta, float* d, float* q) {
     float cosine = arm_cos_f32(theta);
@@ -62,13 +66,17 @@ void svm(float v_bus, float u, float v, float w, float* dtc_u, float* dtc_v, flo
     /// Space Vector Modulation ///
     /// u,v,w amplitude = v_bus for full modulation depth ///
 
-#define DTC_MIN 0
-#define DTC_MAX 1
+    #define DTC_MIN 0
+    #define DTC_MAX 1
 
     float v_offset = (fminf3(u, v, w) + fmaxf3(u, v, w)) / 2.0f;
     *dtc_u = fminf(fmaxf(((u - v_offset) / v_bus + .5f), DTC_MIN), DTC_MAX);
     *dtc_v = fminf(fmaxf(((v - v_offset) / v_bus + .5f), DTC_MIN), DTC_MAX);
     *dtc_w = fminf(fmaxf(((w - v_offset) / v_bus + .5f), DTC_MIN), DTC_MAX);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
