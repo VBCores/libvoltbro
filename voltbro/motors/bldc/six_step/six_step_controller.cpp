@@ -3,7 +3,7 @@
 
 #define USE_CONTROL
 
-void SixStepController::set_voltage(float target) {
+void SixStepController::update() {
     if (!_is_on) {
         return;
     }
@@ -11,7 +11,7 @@ void SixStepController::set_voltage(float target) {
     DrivePhase first, second;
     step_to_phases(hall_sensor.get_step(), first, second);
 
-    int16_t new_pwm = full_pwm / drive_info.supply_voltage * target;
+    int16_t new_pwm = full_pwm / drive_info.supply_voltage * voltage_target;
 
     const uint32_t MAX_PWM = full_pwm * 0.95f;
     if ( ((uint16_t)abs(new_pwm)) > MAX_PWM ) {

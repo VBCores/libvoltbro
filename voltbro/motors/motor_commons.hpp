@@ -24,6 +24,7 @@ public:
     virtual HAL_StatusTypeDef stop() = 0;
     virtual HAL_StatusTypeDef start() = 0;
     virtual HAL_StatusTypeDef set_state(bool) = 0;
+    virtual void update() = 0;
 };
 
 inline float calculate_angle_simple(

@@ -27,7 +27,7 @@ public:
         hall_sensor(hall_sensor)
     {}
 
-    void set_voltage(float target);
+    void update() override;
 };
 
 #endif

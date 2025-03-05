@@ -58,7 +58,7 @@ public:
     HAL_StatusTypeDef init();
     HAL_StatusTypeDef set_state(bool);
     HAL_StatusTypeDef set_Ipeak(float);
-    void update();
+    void update() override;
     void set_pulse(float pwm);
 
     bool is_on() const {

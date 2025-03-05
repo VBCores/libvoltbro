@@ -67,6 +67,7 @@ protected:
     arm_atomic(float) shaft_angle;
     arm_atomic(float) shaft_velocity;
     arm_atomic(float) shaft_torque = 0;
+    arm_atomic(float) voltage_target = 0;
     arm_atomic(bool) _is_on;
     arm_atomic(bool) is_stalling;
     uint16_t DQs[3] = {0, 0, 0};
@@ -123,12 +124,11 @@ public:
         control_config.target = torque;
         return true;
     }
-    inline bool set_voltage_point(float voltage) {
-        control_config.point_type = SetPointType::VOLTAGE;
-        control_config.target = voltage;
+    */
+    virtual bool set_voltage_point(float voltage) {
+        voltage_target = voltage;
         return true;
     }
-    */
     const DriveInfo& get_info() const {
         return drive_info;
     }
