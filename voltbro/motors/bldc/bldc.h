@@ -10,8 +10,9 @@
 #include "voltbro/math/math_ops.hpp"
 #include "voltbro/math/regulators/pid.hpp"
 #include "voltbro/encoders/hall_sensor/hall_sensor.h"
+#include "voltbro/devices/gpio.hpp"
 #include "voltbro/devices/inverter.hpp"
-#include "../motor_commons.h"
+#include "../motor_commons.hpp"
 
 enum class SetPointType { VELOCITY, TORQUE, POSITION, VOLTAGE };
 
@@ -47,17 +48,17 @@ struct DriveInfo {
     float max_current;
     float max_torque;
     float stall_current;
+    float stall_timeout;
+    float stall_tolerance;
     const float supply_voltage;
 
-    const pin L_PINS[3];
-    const pin en_pin;
-    GPIO_TypeDef* const en_port;
+    const GpioPin l_pins[3];
+    const GpioPin en_pin;
     const CommonDriverConfig common;
 };
 
 class BLDCController: public AbstractMotor {
 protected:
-    ControlConfig control_config;
     DriveInfo drive_info;
     Inverter inverter;
     const int32_t full_pwm;
@@ -71,51 +72,37 @@ protected:
     uint16_t DQs[3] = {0, 0, 0};
 public:
     BLDCController(
+        float user_current_limit,
         DriveInfo&& drive_info,
-        ControlConfig&& control_config,
         TIM_HandleTypeDef* htim,
-        ADC_HandleTypeDef* hadc,
-        float angle_filter = 1,
-        float speed_filter = 1
+        ADC_HandleTypeDef* hadc
     ):
-        AbstractMotor(angle_filter, speed_filter),
-        control_config(std::move(control_config)),
+        AbstractMotor(),
         drive_info(std::move(drive_info)),
         inverter(hadc),
         full_pwm(htim->Instance->ARR),
         htim(htim)
     {
-        assert_param(
-            control_config.user_torque_limit <= drive_info.max_torque &&
-            control_config.user_torque_limit >= 0
-        );
-        assert_param(
-            control_config.user_current_limit <= drive_info.max_current &&
-            control_config.user_current_limit >= 0
-        );
-
-        if (is_close(control_config.user_torque_limit, 0)) {
-            control_config.user_torque_limit = drive_info.max_torque;
+        assert_param(user_current_limit <= drive_info.max_current && user_current_limit >= 0);
+        if (is_close(user_current_limit, 0)) {
+            user_current_limit = drive_info.max_current;
         }
-        if (is_close(control_config.user_current_limit, 0)) {
-            control_config.user_current_limit = drive_info.max_current;
-        }
-
-        control_config.current_limit = control_config.user_current_limit;
+        AbstractMotor::user_current_limit = current_limit = user_current_limit;
     }
 
+    inline bool set_current_limit(float current_limit) {
+        if (current_limit > drive_info.max_current || current_limit <= 0) {
+            return false;
+        }
+        user_current_limit = current_limit;
+        return true;
+    }
+    /*
     inline bool set_torque_limit(float torque_limit) {
         if (torque_limit > drive_info.max_torque || torque_limit <= 0) {
             return false;
         }
         control_config.user_torque_limit = torque_limit;
-        return true;
-    }
-    inline bool set_current_limit(float current_limit) {
-        if (current_limit > drive_info.max_current || current_limit <= 0) {
-            return false;
-        }
-        control_config.user_current_limit = current_limit;
         return true;
     }
     inline bool set_angle_point(float angle) {
@@ -141,21 +128,29 @@ public:
         control_config.target = voltage;
         return true;
     }
-    const ControlConfig& get_config() const {
-        return control_config;
-    }
+    */
     const DriveInfo& get_info() const {
         return drive_info;
     }
     const Inverter& get_inverter() const {
         return inverter;
     }
+    bool is_on() const {
+        return _is_on;
+    }
+    float get_angle() const {
+        return shaft_angle;
+    }
+    float get_velocity() const {
+        return shaft_velocity;
+    }
 
     void detect_stall(double passed_time_abs);
-    inline void quit_stall() {
-        control_config.current_limit = control_config.user_current_limit;
-        is_stalling = false;
-    }
+    void quit_stall();
+    HAL_StatusTypeDef init() override;
+    HAL_StatusTypeDef stop() override;
+    HAL_StatusTypeDef start() override;
+    HAL_StatusTypeDef set_state(bool) override;
 
     __attribute__((always_inline)) void flow_direction(DrivePhase from, DrivePhase to, int16_t pwm) {
         uint16_t actual_pwm = abs(pwm);
@@ -172,13 +167,13 @@ public:
         if (DrivePhase::PHASE_C != from && DrivePhase::PHASE_C != to)
             off = DrivePhase::PHASE_C;
 
-        HAL_GPIO_WritePin(GPIOB, drive_info.L_PINS[to_underlying(off)], GPIO_PIN_RESET);
+        drive_info.l_pins[to_underlying(off)].reset();
         DQs[to_underlying(off)] = 0;
 
-        HAL_GPIO_WritePin(GPIOB, drive_info.L_PINS[to_underlying(from)], GPIO_PIN_SET);
+        drive_info.l_pins[to_underlying(from)].set();
         DQs[to_underlying(from)] = actual_pwm;
 
-        HAL_GPIO_WritePin(GPIOB, drive_info.L_PINS[to_underlying(to)], GPIO_PIN_SET);
+        drive_info.l_pins[to_underlying(to)].set();
         DQs[to_underlying(to)] = 0;
     }
 
@@ -190,21 +185,7 @@ public:
         return theta;
     }
 
-    bool is_on() const {
-        return _is_on;
-    }
-    HAL_StatusTypeDef stop();
-    HAL_StatusTypeDef start();
-    HAL_StatusTypeDef set_state(bool);
-
-    float get_angle() const {
-        return shaft_angle;
-    }
-    float get_velocity() const {
-        return shaft_velocity;
-    }
-
-    inline void set_pwm() {
+    __attribute__((always_inline)) void set_pwm() {
         __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, DQs[0]);
         __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, DQs[1]);
         __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, DQs[2]);
@@ -212,6 +193,7 @@ public:
 };
 
 void step_to_phases(EncoderStep step, DrivePhase& first, DrivePhase& second);
+
 force_inline float get_current(Inverter& inverter, DrivePhase current_relative) {
     switch (current_relative) {
         case DrivePhase::PHASE_A:

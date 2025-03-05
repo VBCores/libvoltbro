@@ -14,7 +14,7 @@ HallSensor::HallSensor(
     pin pin_2,
     GPIO_TypeDef *pin_3_gpiox,
     pin pin_3,
-    std::array<EncoderStep, 6>&& sequence,
+    HallSequence&& sequence,
     bool is_exti_trusted
 ):
     GenericEncoder(CPR, is_inverted, true),
@@ -31,6 +31,7 @@ HallSensor::HallSensor(
     state_2 = get_pin_state(pin_2_gpiox, pin_2);
     state_3 = get_pin_state(pin_3_gpiox, pin_3);
     increment = is_inverted ? -1 : 1;
+    step = get_encoder_step();
 }
 
 #ifdef DEBUG

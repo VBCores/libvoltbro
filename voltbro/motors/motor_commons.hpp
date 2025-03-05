@@ -16,6 +16,9 @@ struct CommonDriverConfig {
 };
 
 class AbstractMotor {
+protected:
+    float current_limit = 0;  // Real current limit for operation
+    float user_current_limit = 0;  // Limit set by user. Can be superseded by motor parameters - stall current, etc.
 public:
     virtual HAL_StatusTypeDef init() = 0;
     virtual HAL_StatusTypeDef stop() = 0;

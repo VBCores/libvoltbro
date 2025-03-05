@@ -48,7 +48,7 @@ public:
         bool is_electrical = false,
         encoder_data electric_offset = 0
     ):
-        GenericEncoder(CPR, is_inverted, is_inverted, electric_offset),
+        GenericEncoder(CPR, is_inverted, is_electrical, electric_offset),
         SPI_SS_GPIOx(SPI_SS_GPIOx),
         SPI_SS(SPI_SS),
         spi(spi)

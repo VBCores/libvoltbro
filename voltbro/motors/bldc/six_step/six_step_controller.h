@@ -10,29 +10,24 @@
 class SixStepController: public BLDCController {
 private:
     HallSensor& hall_sensor;
-
-    const float T;  // control loop period, sec
 public:
     SixStepController(
-        float T,
+        float user_current_limit,
         DriveInfo&& drive_info,
-        ControlConfig&& control_config,
         TIM_HandleTypeDef* htim,
         ADC_HandleTypeDef* hadc,
         HallSensor& hall_sensor
     ):
         BLDCController(
-            std::forward<DriveInfo>(drive_info),
-            std::forward<ControlConfig>(control_config),
+            user_current_limit,
+            std::move(drive_info),
             htim,
             hadc
         ),
-        hall_sensor(hall_sensor),
-        T(T)
+        hall_sensor(hall_sensor)
     {}
 
-    void hall_six_step_control_callback();
-    void regulate(float _ = 0) override;
+    void set_voltage(float target);
 };
 
 #endif

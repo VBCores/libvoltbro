@@ -35,7 +35,9 @@ public:
         is_inverted(is_inverted)
         {};
 
-    virtual HAL_StatusTypeDef init() {}
+    virtual HAL_StatusTypeDef init() {
+        return HAL_OK;
+    }
     virtual void update_value() {}
     virtual inline encoder_data get_value() const {
         return value;

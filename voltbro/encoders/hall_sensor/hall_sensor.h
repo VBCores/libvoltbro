@@ -9,6 +9,8 @@
 #include "voltbro/encoders/generic.h"
 #include "voltbro/utils.hpp"
 
+enum class HallPhase: uint8_t { PHASE_A = 1, PHASE_B = 2, PHASE_C = 4 };
+
 enum class EncoderStep: uint8_t {
     CA = 4,
     AB = 1,
@@ -18,8 +20,9 @@ enum class EncoderStep: uint8_t {
     AC = 3
 };
 
-
 class HallSensor: public GenericEncoder {
+public:
+    using HallSequence = std::array<HallPhase, 3>;
 private:
     const bool IS_EXTI_TRUSTED;
 
@@ -36,10 +39,14 @@ private:
     const pin pin_1;
     const pin pin_2;
     const pin pin_3;
-    std::array<EncoderStep, 6> sequence;
+    HallSequence sequence;
 
     __attribute__((always_inline)) inline EncoderStep get_encoder_step() {
-        return EncoderStep(state_1 + state_2 * 2 + state_3 * 4);
+        return EncoderStep(
+            state_1 * to_underlying(sequence[0]) +
+            state_2 * to_underlying(sequence[1]) +
+            state_3 * to_underlying(sequence[2])
+        );
     }
 public:
     HallSensor(
@@ -51,7 +58,7 @@ public:
         pin pin_2,
         GPIO_TypeDef* pin_3_gpiox,
         pin pin_3,
-        std::array<EncoderStep, 6>&& sequence,
+        HallSequence&& sequence,
         bool is_exti_trusted=false
     );
 

@@ -82,7 +82,7 @@ uint16_t AS5048A::get_angle() {
     return angle;
 }
 
-void AS5048A::update_value() override {
+void AS5048A::update_value() {
     encoder_data new_value = get_angle();
 
     if (value == (encoder_data)-1) {
