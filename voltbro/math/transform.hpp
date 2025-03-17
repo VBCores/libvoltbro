@@ -7,7 +7,7 @@ extern "C" {
 
 #include "math_ops.hpp"
 
-void Park(float alpha, float beta, float theta, float* d, float* q) {
+inline void Park(float alpha, float beta, float theta, float* d, float* q) {
     float cosine = arm_cos_f32(theta);
     float sine = arm_sin_f32(theta);
     //*d = alpha*cosine - beta*sine;      //This is a hack - effectively using
@@ -18,25 +18,25 @@ void Park(float alpha, float beta, float theta, float* d, float* q) {
     *q = beta * cosine - alpha * sine;
 }
 
-void InvPark(float d, float q, float theta, float* alpha, float* beta) {
+inline void InvPark(float d, float q, float theta, float* alpha, float* beta) {
     float cosine = arm_cos_f32(theta);
     float sine = arm_sin_f32(theta);
     *alpha = d * cosine - q * sine;
     *beta = q * cosine + d * sine;
 }
 
-void Clarke(float a, float b, float* alpha, float* beta) {
+inline void Clarke(float a, float b, float* alpha, float* beta) {
     *alpha = a;
     *beta = 0.57735026919f * (a + 2.0f * b);
 }
 
-void InvClarke(float alpha, float beta, float* a, float* b, float* c) {
+inline void InvClarke(float alpha, float beta, float* a, float* b, float* c) {
     *a = alpha;
     *b = 0.5f * (-alpha + 1.73205080757f * beta);
     *c = 0.5f * (-alpha - 1.73205080757f * beta);
 }
 
-void dq0(float sf, float cf, float a, float b, float c, float* d, float* q) {
+inline void dq0(float sf, float cf, float a, float b, float c, float* d, float* q) {
     /// DQ0 Transform ///
     /// Phase current amplitude = lengh of dq vector///
     /// i.e. iq = 1, id = 0, peak phase current of 1///
@@ -50,7 +50,7 @@ void dq0(float sf, float cf, float a, float b, float c, float* d, float* q) {
          (-sf * a - (-0.86602540378f * cf - .5f * sf) * b - (0.86602540378f * cf - .5f * sf) * c);
 }
 
-void abc(float sf, float cf, float d, float q, float* a, float* b, float* c) {
+inline void abc(float sf, float cf, float d, float q, float* a, float* b, float* c) {
     /// Inverse DQ0 Transform ///
     /// Phase current amplitude = lengh of dq vector///
     /// i.e. iq = 1, id = 0, peak phase current of 1///
@@ -62,7 +62,7 @@ void abc(float sf, float cf, float d, float q, float* a, float* b, float* c) {
     *c = (-0.86602540378f * sf - .5f * cf) * d - (0.86602540378f * cf - .5f * sf) * q;
 }
 
-void svm(float v_bus, float u, float v, float w, float* dtc_u, float* dtc_v, float* dtc_w) {
+inline void svm(float v_bus, float u, float v, float w, float* dtc_u, float* dtc_v, float* dtc_w) {
     /// Space Vector Modulation ///
     /// u,v,w amplitude = v_bus for full modulation depth ///
 
