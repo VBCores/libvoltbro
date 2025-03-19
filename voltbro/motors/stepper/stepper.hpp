@@ -6,12 +6,9 @@
 
 #include <utility>
 
-#include "voltbro/devices/gpio.hpp"
-#include "voltbro/utils.hpp"
-#include "voltbro/motors/motor_commons.hpp"
+#include "stepper_base.hpp"
 
 struct StepperSimpleConfig {
-    const GpioPin enable;
     const GpioPin direction;
     const GpioPin sd_mode;
     const GpioPin spi_mode;
@@ -28,38 +25,18 @@ struct StepperSimpleConfig {
     TIM_HandleTypeDef* const timer;
 };
 
-class StepperMotorSimple : public AbstractMotor {
+class StepperMotorSimple : public StepperBase {
 protected:
     const StepperSimpleConfig config;
     const uint32_t counts_per_sec;
     const uint32_t PULSE_WIDTH = 10;
     arm_atomic(bool) _is_on = false;
 public:
-    StepperMotorSimple(const StepperSimpleConfig&& driver):
-        AbstractMotor(),
+    StepperMotorSimple(StepperSimpleConfig&& driver, GpioPin&& enn_pin):
+        StepperBase(std::forward<GpioPin&&>(enn_pin)),
         config(std::move(driver)),
         counts_per_sec(160000000 / (config.timer->Instance->PSC + 1))
     {};
-
-    HAL_StatusTypeDef set_state(bool state) override{
-        if (state) {
-            config.enable.reset();
-        }
-        else {
-            config.enable.set();
-        }
-        _is_on = state;
-        return HAL_OK;
-    }
-    HAL_StatusTypeDef stop() override {
-        return set_state(false);
-    }
-    HAL_StatusTypeDef start() override {
-        return set_state(true);
-    }
-    bool is_on() const {
-        return _is_on;
-    }
 
     HAL_StatusTypeDef start_pwm() {
         return HAL_TIM_PWM_Start(config.timer, config.step_channel);
@@ -102,10 +79,6 @@ public:
             config.direction.reset();
         }
         config.timer->Instance->ARR = arr_value;
-    }
-
-    void update() override {
-
     }
 };
 
