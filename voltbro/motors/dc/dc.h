@@ -10,7 +10,6 @@
 #include "voltbro/utils.hpp"
 #include "voltbro/encoders/generic.h"
 #include "voltbro/motors/motor_commons.hpp"
-#include "voltbro/math/dsp/low_pass_filter.hpp"
 
 struct DCDriverConfig {
     const pin nSLEEP_pin;
@@ -55,8 +54,8 @@ public:
         is_using_brake(is_using_brake)
     {};
 
-    HAL_StatusTypeDef init();
-    HAL_StatusTypeDef set_state(bool);
+    HAL_StatusTypeDef init() override;
+    HAL_StatusTypeDef set_state(bool) override;
     HAL_StatusTypeDef set_Ipeak(float);
     void update() override;
     void set_pulse(float pwm);
@@ -70,10 +69,10 @@ public:
     float get_Ipeak() const {
         return Ipeak;
     }
-    HAL_StatusTypeDef stop() {
+    HAL_StatusTypeDef stop() override {
         return set_state(false);
     }
-    HAL_StatusTypeDef start() {
+    HAL_StatusTypeDef start() override {
         return set_state(true);
     }
 };
