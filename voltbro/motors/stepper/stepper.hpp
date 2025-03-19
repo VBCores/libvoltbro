@@ -26,14 +26,10 @@ struct StepperSimpleConfig {
 
     const pwm_channel step_channel;
     TIM_HandleTypeDef* const timer;
-
-    const double Rsense = 0.05;
-
-    const CommonDriverConfig common;
 };
 
 class StepperMotorSimple : public AbstractMotor {
-private:
+protected:
     const StepperSimpleConfig config;
     const uint32_t counts_per_sec;
     const uint32_t PULSE_WIDTH = 10;
@@ -65,6 +61,10 @@ public:
         return _is_on;
     }
 
+    HAL_StatusTypeDef start_pwm() {
+        return HAL_TIM_PWM_Start(config.timer, config.step_channel);
+    }
+
     HAL_StatusTypeDef init() override {
         config.sd_mode.set();
         config.spi_mode.reset();
@@ -79,7 +79,7 @@ public:
         config.cfg5.set();
         config.cfg6.set();
 
-        return HAL_TIM_PWM_Start(config.timer, config.step_channel);
+        return start_pwm();
     }
 
     void set_pulse_freq(uint32_t freq, bool positive_direction) {
