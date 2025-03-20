@@ -74,12 +74,7 @@ public:
         send_recieve_data(0x21, 0x00000000, &position);
     }
 
-
-    HAL_StatusTypeDef init() override {
-        config.sd_mode.reset();
-        config.spi_mode.set();
-        HAL_Delay(150);
-
+    virtual HAL_StatusTypeDef send_config() {
         uint32_t recv;
         HAL_StatusTypeDef status;
         check_status(send_recieve_data(0x80, 0x00000000, &recv))
@@ -104,7 +99,14 @@ public:
         return HAL_OK;
     }
 
-    void set_target(uint32_t value) {
+    HAL_StatusTypeDef init() override {
+        config.sd_mode.reset();
+        config.spi_mode.set();
+        HAL_Delay(150);
+        return send_config();
+    }
+
+    virtual void set_target(uint32_t value) {
         uint32_t recv;
         send_recieve_data(0xAD, value, &recv);
     }
