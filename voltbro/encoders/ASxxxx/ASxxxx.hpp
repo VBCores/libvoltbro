@@ -60,21 +60,20 @@ private:
         return command;
     }
 
-    uint16_t read(ASxxxxParams reg) {
+    uint16_t read(ASxxxxParams reg, bool recieve_immediate = false) {
         uint16_t command = get_command(reg);
 
         start_transaction();
-        HAL_StatusTypeDef transmit_status = spi_transmit_command(command);
-        if (transmit_status != HAL_OK) {
-            // TODO?
+        uint16_t response = spi_transmit_command_receive(command);
+        end_transaction();
+
+        if (!recieve_immediate) {
+            delay_cpu_cycles(to_underlying(ASxxxxParams::CS_DELAY_CYCLES));
+
+            start_transaction();
+            response = spi_transmit_command_receive((uint16_t)ASxxxxParams::REG_NOP);
+            end_transaction();
         }
-        end_transaction();
-
-        delay_cpu_cycles(to_underlying(ASxxxxParams::CS_DELAY_CYCLES));
-
-        start_transaction();
-        uint16_t response = spi_transmit_command_receive((uint16_t)ASxxxxParams::REG_NOP);
-        end_transaction();
 
         last_error = (response & to_underlying(ASxxxxParams::ERROR_BIT));
 
@@ -82,8 +81,8 @@ private:
         return response & ~to_underlying(ASxxxxParams::CLEAR_ERROR_AND_PARITY);
     }
 
-    encoder_data get_angle() {
-        uint16_t angle = read(ASxxxxParams::REG_ANGLE);
+    encoder_data get_angle(bool recieve_immediate = true) {
+        uint16_t angle = read(ASxxxxParams::REG_ANGLE, recieve_immediate);
         if (is_inverted) {
             angle = CPR - angle;
         }
@@ -104,6 +103,10 @@ public:
     {
         value = (encoder_data)-1;
     };
+
+    void start_streaming() {
+        get_angle(true);  // skip first (empty) SPI response, without sending NOP
+    }
 
     void update_value() override {
         encoder_data new_value = get_angle();
