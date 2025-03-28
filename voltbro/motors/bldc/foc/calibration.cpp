@@ -1,5 +1,5 @@
 #include "foc.h"
-#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED)
+#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED) && defined(HAL_CORDIC_MODULE_ENABLED)
 
 #include "voltbro/math/transform.hpp"
 
