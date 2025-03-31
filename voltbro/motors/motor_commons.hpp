@@ -15,6 +15,9 @@ struct CommonDriverConfig {
     const uint8_t gear_ratio = 1;
 };
 
+/**
+ * Базовый класс всех моторов.
+ */
 class AbstractMotor {
 protected:
     float current_limit = 0;  // Real current limit for operation
