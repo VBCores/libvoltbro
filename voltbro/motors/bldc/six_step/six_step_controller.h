@@ -7,6 +7,9 @@
 
 #include "../bldc.h"
 
+/**
+ * Simple controller with 6-step switching logic.
+ */
 class SixStepController: public BLDCController {
 private:
     HallSensor& hall_sensor;

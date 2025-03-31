@@ -57,6 +57,9 @@ struct DriveInfo {
     const CommonDriverConfig common;
 };
 
+/**
+ * Base for BLDC motors. Controlls PWM, coil switching and current sensing
+ */
 class BLDCController: public AbstractMotor {
 protected:
     DriveInfo drive_info;

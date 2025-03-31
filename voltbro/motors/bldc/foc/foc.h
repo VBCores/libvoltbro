@@ -26,6 +26,9 @@ struct CalibrationData {
     __non_const_calib_array_t calibration_array;
 };
 
+/**
+ * Field oriented control.
+ */
 class FOC: public BLDCController  {
 private:
     FOCMode mode;

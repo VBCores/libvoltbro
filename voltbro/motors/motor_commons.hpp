@@ -16,7 +16,7 @@ struct CommonDriverConfig {
 };
 
 /**
- * Базовый класс всех моторов.
+ * Abstract base class for all motor APIs
  */
 class AbstractMotor {
 protected:
