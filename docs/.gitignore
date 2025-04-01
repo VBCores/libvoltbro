@@ -2,6 +2,6 @@
 !.gitignore
 !Doxyfile
 !conf.py
-!index.rst
+!*.rst
 !Makefile
 !requirements.txt
