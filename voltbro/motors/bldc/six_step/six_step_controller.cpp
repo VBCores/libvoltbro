@@ -7,12 +7,13 @@ void SixStepController::update() {
     if (!_is_on) {
         return;
     }
+    inverter.update();
 
     DrivePhase first, second;
     step_to_phases(hall_sensor.get_step(), first, second);
 
     // TODO: check and report if point_type is not voltage?
-    int16_t new_pwm = full_pwm / drive_info.supply_voltage * target;
+    int16_t new_pwm = full_pwm / inverter.get_busV() * target;  // TODO: busV or manually set supply_voltage?
 
     const uint32_t MAX_PWM = full_pwm * 0.95f;
     if ( ((uint16_t)abs(new_pwm)) > MAX_PWM ) {
