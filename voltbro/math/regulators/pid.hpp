@@ -61,6 +61,7 @@ public:
     void update_config(PIDConfig&& new_config) {
         config = std::move(new_config);
     }
+
     PIDConfig get_config() {
         return config;
     }
