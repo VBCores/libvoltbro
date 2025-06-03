@@ -20,17 +20,21 @@ HAL_StatusTypeDef DCMotorController::set_state(bool state) {
     return HAL_OK;
 }
 
-HAL_StatusTypeDef DCMotorController::set_Ipeak(float new_Ipeak) {
-    Ipeak = new_Ipeak;
+HAL_StatusTypeDef DCMotorController::apply_limits() {
+    Ipeak = limits.current_limit;
     double Vref = Ipeak * config.Rsense * 10 * 2;
     uint32_t dac_val = dac_value(Vref);
-    return HAL_DAC_SetValue(
+    auto state = HAL_DAC_SetValue(
         config.dac,
         config.dac_channel_,
         DAC_ALIGN_12B_R,
         dac_val
     );
-}
+    if (state != HAL_OK) {
+        return state;
+    }
+    return AbstractMotor<BLDCController>::apply_limits();
+};
 
 void DCMotorController::set_pulse(float pwm) {
     auto compare_value = static_cast<uint32_t>(floorf(abs(pwm)));

@@ -8,11 +8,6 @@
 #include "../bldc.h"
 #include "voltbro/encoders/generic.h"
 
-enum class FOCMode {
-    NORMAL,
-    PI_CURRENT
-};
-
 constexpr size_t CALIBRATION_BUFF_SIZE = 1024;
 using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
 using calibration_array_t = const __non_const_calib_array_t;
@@ -31,7 +26,6 @@ struct CalibrationData {
  */
 class FOC: public BLDCController  {
 private:
-    FOCMode mode;
     GenericEncoder& encoder;
     float T;
     float raw_elec_angle = 0;
@@ -58,20 +52,18 @@ public:
 
     FOC(
         float T,
-        float user_current_limit,
-        DriveInfo&& drive_info,
+        const DriveLimits& drive_limits,
+        const DriveInfo& drive_info,
         TIM_HandleTypeDef* htim,
         ADC_HandleTypeDef* hadc,
-        GenericEncoder& encoder,
-        FOCMode mode = FOCMode::NORMAL
+        GenericEncoder& encoder
     ):
         BLDCController(
-            user_current_limit,
-            std::move(drive_info),
+            drive_limits,
+            drive_info,
             htim,
             hadc
         ),
-        mode(mode),
         encoder(encoder),
         T(T)
         {}
