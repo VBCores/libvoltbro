@@ -7,6 +7,8 @@
 #include "stm32g4xx_ll_cordic.h"
 #include "voltbro/math/transform.hpp"
 
+#define MONITOR
+
 #if defined(DEBUG) || defined(MONITOR)
 volatile float raw_elec_angle_glob = 0;
 volatile float shaft_angle_glob = 0;

@@ -50,6 +50,7 @@ struct KalmanConfig {
     float g3;
 };
 
+
 /**
  * Field oriented control.
  */
