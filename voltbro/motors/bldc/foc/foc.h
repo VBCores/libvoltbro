@@ -7,6 +7,7 @@
 
 #include "../bldc.h"
 #include "voltbro/encoders/generic.h"
+#include "voltbro/math/regulators/pid.hpp"
 
 constexpr size_t CALIBRATION_BUFF_SIZE = 1024;
 using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
@@ -21,12 +22,16 @@ struct CalibrationData {
     __non_const_calib_array_t calibration_array;
 };
 
+
 /**
  * Field oriented control.
  */
 class FOC: public BLDCController  {
 private:
     GenericEncoder& encoder;
+    PIDRegulator q_reg;
+    PIDRegulator d_reg;
+    PIDRegulator control_reg;
     float T;
     float raw_elec_angle = 0;
     float elec_angle = 0;
@@ -52,6 +57,9 @@ public:
 
     FOC(
         float T,
+        const PIDConfig& control_config,
+        const PIDConfig& q_config,
+        const PIDConfig& d_config,
         const DriveLimits& drive_limits,
         const DriveInfo& drive_info,
         TIM_HandleTypeDef* htim,
@@ -65,7 +73,10 @@ public:
             hadc
         ),
         encoder(encoder),
-        T(T)
+        T(T),
+        control_reg(std::move(control_config)),
+        q_reg(std::move(q_config)),
+        d_reg(std::move(d_config))
         {}
 
     float get_electric_angle() {

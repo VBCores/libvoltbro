@@ -7,6 +7,8 @@
 #include "stm32g4xx_ll_cordic.h"
 #include "voltbro/math/transform.hpp"
 
+#define MONITOR
+
 #if defined(DEBUG) || defined(MONITOR)
 volatile float raw_elec_angle_glob = 0;
 #endif
@@ -96,11 +98,15 @@ void FOC::apply_kalman() {
 
 #if defined(DEBUG) || defined(MONITOR)
 #define IS_GLOBAL_CONTROL_VARIABLES
-static float I_D = 0;
-static float I_Q = 0;
+static volatile float I_D = 0;
+static volatile float I_Q = 0;
 float V_d, V_q;
 volatile float elec_angle_glob = 0;
 volatile float mech_angle_glob = 0;
+static volatile float i_q_error, i_d_error;
+static float d_response, q_response, i_q_set;
+static volatile float shart_torque_glob = 0;
+static volatile float shart_velocity_glob = 0;
 #endif
 
 void FOC::update_sensors() {
@@ -135,21 +141,70 @@ void FOC::update() {
     static float I_Q = 0;
     #endif
     // LPF for motor current
-    float tempD = I_D;
-    float tempQ = I_Q;
+    float tempD, tempQ;
     // dq0 transform on currents
     dq0(s, c, inverter.get_A(), inverter.get_B(), inverter.get_C(), &tempD, &tempQ);
     const float diff_D = I_D - tempD;
     const float diff_Q = I_Q - tempQ;
 
+    /*
     const float LPF_COEFFICIENT = 0.0925f;  // Low-pass filter coefficient
     I_D = I_D - (LPF_COEFFICIENT * diff_D);
     I_Q = I_Q - (LPF_COEFFICIENT * diff_Q);
+    */
+    I_D = tempD;  // use raw values for now
+    I_Q = tempQ;
 
     shaft_torque = I_Q * drive_info.torque_const * (float)drive_info.common.gear_ratio;
+    #ifdef IS_GLOBAL_CONTROL_VARIABLES
+    shart_torque_glob = shaft_torque;
+    shart_velocity_glob = shaft_velocity;
+    #endif
 
-    V_d = 0;
-    V_q = -target;
+    if (point_type == SetPointType::VOLTAGE) {
+        V_d = 0;
+        V_q = -target;
+    }
+    else {
+        #ifndef IS_GLOBAL_CONTROL_VARIABLES
+        float i_d_error, i_q_error, d_response, q_response, i_q_set;
+        #endif
+        /*
+        i_d_error = -I_D;
+        d_response = q_reg.regulation(i_d_error, T, true);
+        V_d = std::clamp(d_response, -inverter.get_busV(), inverter.get_busV());
+        */
+        V_d = 0;
+
+        i_q_set = 0.0f;
+        if (point_type == SetPointType::TORQUE) {
+            i_q_set = -target / drive_info.torque_const / (float)drive_info.common.gear_ratio;
+        }
+        else {
+            float control_error = 0;
+            if (point_type == SetPointType::POSITION) {
+                control_error = target - shaft_angle;
+            }
+            else if (point_type == SetPointType::VELOCITY) {
+                control_error = target - shaft_velocity;
+            }
+            i_q_set = control_reg.regulation(control_error, T, false);
+        }
+
+        float abs_max_current_from_torque = (drive_info.max_torque / drive_info.torque_const / (float)drive_info.common.gear_ratio);
+        if (abs(i_q_set) > abs_max_current_from_torque) {
+            i_q_set = copysign(abs_max_current_from_torque, i_q_set);
+        }
+        // absolute limit on currents defined by the hardware safe operation region
+        if (abs(i_q_set) > 30.0f) {
+            i_q_set = copysign(30.0f, i_q_set);
+        }
+
+        i_q_error = i_q_set - I_Q;
+        q_response = q_reg.regulation(i_q_error, T, false);
+        V_q = std::clamp(q_response, -inverter.get_busV(), inverter.get_busV());
+    }
+
     limit_norm(&V_d, &V_q, inverter.get_busV());
 
     float v_u = 0, v_v = 0, v_w = 0;

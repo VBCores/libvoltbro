@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utility>
+#include <algorithm>
 
 #ifdef ARM_MATH_CM4
 #include <arm_math.h>
@@ -10,11 +11,13 @@
 
 struct PIDConfig {
     float multiplier = 1.0;
-    float p_gain;
-    float i_gain;
-    float d_gain;
-    float integral_error_lim;
-    float tolerance;
+    float kp = 0.0f;
+    float ki = 0.0f;
+    float kd = 0.0f;
+    float integral_error_lim = INFINITY;
+    float tolerance = 0.0f;
+    float max_output = INFINITY;
+    float min_output = -INFINITY;
 };
 
 class PIDRegulator  {
@@ -27,8 +30,8 @@ public:
     // expect copy-elision
     explicit PIDRegulator(const PIDConfig&& config) : config(std::move(config)) {}
 
-    float regulation(float error, float dt, bool zero_in_threshold=true) {
-        if (zero_in_threshold && fabs(error) <= config.tolerance) {
+    float regulation(float error, float dt, bool zero_in_threshold=false) {
+        if (zero_in_threshold && (fabs(error) <= config.tolerance)) {
             signal = 0;
             integral_error = 0;
             return 0;
@@ -48,11 +51,11 @@ public:
         integral_error = new_integral_error;
 
         signal = config.multiplier * (
-             config.p_gain * error + config.i_gain * integral_error +
-             config.d_gain * error_diff / dt
+             config.kp * error + config.ki * integral_error +
+             config.kd * error_diff / dt
          );
 
-        return signal;
+        return std::clamp(signal, config.min_output, config.max_output);
     }
 
     void update_config(PIDConfig&& new_config) {

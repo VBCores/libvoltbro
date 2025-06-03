@@ -5,6 +5,12 @@
 #ifdef HAL_ADC_MODULE_ENABLED
 #include <cstdint>
 
+
+#define IS_GLOBAL_CONTROL_VARIABLES
+#ifdef IS_GLOBAL_CONTROL_VARIABLES
+static volatile float I_A_glob, I_B_glob, I_C_glob, busV_glob;
+#endif
+
 class Inverter {
 private:
     const volatile uint32_t ADC_buffer[4] = {};
@@ -60,7 +66,13 @@ public:
               (shunt_res * op_amp_gain);
         I_C = ((3.3f * (float)ADC_buffer[3] / (16.0f * 4096.0f)) - I_C_offset) /
               (shunt_res * op_amp_gain);
-        busV = 12.0f * 3.3f * ADC_buffer[0] / 4096.0f / 16.0f;  // drivers input voltage
+        busV = 16.0f * 3.3f * (float)ADC_buffer[0] / (16.0f * 4096.0f);  // drivers input voltage
+        #ifdef IS_GLOBAL_CONTROL_VARIABLES
+            I_A_glob = I_A;
+            I_B_glob = I_B;
+            I_C_glob = I_C;
+            busV_glob = busV;
+        #endif
     }
 };
 
