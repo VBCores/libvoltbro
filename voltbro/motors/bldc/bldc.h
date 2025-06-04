@@ -20,7 +20,6 @@ enum class DrivePhase: uint8_t { PHASE_A = 0, PHASE_B = 1, PHASE_C = 2 };
 
 struct DriveInfo {
     const float torque_const;
-    const float speed_const;
     float max_current;
     float max_torque;
     float stall_current;

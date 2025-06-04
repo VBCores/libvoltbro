@@ -14,10 +14,10 @@ struct PIDConfig {
     float kp = 0.0f;
     float ki = 0.0f;
     float kd = 0.0f;
-    float integral_error_lim = INFINITY;
+    float integral_error_lim = 10000.0f;
     float tolerance = 0.0f;
-    float max_output = INFINITY;
-    float min_output = -INFINITY;
+    float max_output = 10000.0f;  // 10k is a reasonable limit for most applications, can be changed if needed
+    float min_output = -10000.0f;  // -10k is a reasonable limit for most applications, can be changed if needed
 };
 
 class PIDRegulator  {
@@ -28,10 +28,10 @@ private:
     PIDConfig config;
 public:
     // expect copy-elision
-    explicit PIDRegulator(const PIDConfig&& config) : config(std::move(config)) {}
+    explicit PIDRegulator(PIDConfig&& config) : config(std::move(config)) {}
 
     float regulation(float error, float dt, bool zero_in_threshold=false) {
-        if (zero_in_threshold && (fabs(error) <= config.tolerance)) {
+        if (zero_in_threshold && config.tolerance != 0 && (fabs(error) <= config.tolerance)) {
             signal = 0;
             integral_error = 0;
             return 0;
@@ -44,9 +44,9 @@ public:
             integral_error = 0;
             // TODO: warn?
         }
-        double new_integral_error = integral_error + error * dt;
+        float new_integral_error = integral_error + error * dt;
         if (fabs(new_integral_error) > config.integral_error_lim) {
-            new_integral_error = copysign(config.integral_error_lim, integral_error);
+            new_integral_error = copysign(config.integral_error_lim, new_integral_error);
         }
         integral_error = new_integral_error;
 
