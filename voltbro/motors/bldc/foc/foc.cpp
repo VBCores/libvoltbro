@@ -11,6 +11,7 @@
 
 #if defined(DEBUG) || defined(MONITOR)
 volatile float raw_elec_angle_glob = 0;
+volatile float shaft_angle_glob = 0;
 #endif
 void FOC::update_angle() {
     encoder.update_value();
@@ -40,6 +41,9 @@ void FOC::update_angle() {
         base_angle = revolutions * rads_per_rev;
     }
     shaft_angle = base_angle + (raw_elec_angle / drive_info.common.gear_ratio);
+    #if defined(DEBUG) || defined(MONITOR)
+        shaft_angle_glob = shaft_angle;
+    #endif
 }
 
 void FOC::apply_kalman() {
@@ -66,9 +70,9 @@ void FOC::apply_kalman() {
      */
     // TODO: get acceleration from inverter?
     const float a = 0.0f; // expected acceleration, rad/s^2
-    const float g1 = 0.015f;
-    const float g2 = 1.891f;
-    const float g3 = 98.47f;
+    const float g1 =  0.003785056342917592f;
+    const float g2 = 0.11891101743266574f;
+    const float g3 = 1.5473769821028327f;
     static float Th_hat = 0.0f; // Theta hat, rad
     static float W_hat = 0.0f; // Omega hat, rad/s
     static float E_hat = 0.0f; // Epsilon hat, rad/s^2
@@ -194,6 +198,9 @@ void FOC::update() {
         float abs_max_current_from_torque = (drive_info.max_torque / drive_info.torque_const / (float)drive_info.common.gear_ratio);
         if (abs(i_q_set) > abs_max_current_from_torque) {
             i_q_set = copysign(abs_max_current_from_torque, i_q_set);
+        }
+        if (abs(i_q_set) > drive_limits.current_limit) {
+            i_q_set = copysign(drive_limits.current_limit, i_q_set);
         }
         // absolute limit on currents defined by the hardware safe operation region
         if (abs(i_q_set) > 30.0f) {

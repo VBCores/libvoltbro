@@ -2,7 +2,8 @@ import numpy as np
 
 T = 0.00005
 
-expected_rps = 4
+# TODO: move all of this to C++ code as a constexpr function
+expected_rps = 1
 p0 = w = (np.pi*2 * 5) * expected_rps
 # angle (should be [40;50])
 theta_deg = 45
