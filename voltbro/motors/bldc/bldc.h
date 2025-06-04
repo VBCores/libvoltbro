@@ -26,6 +26,7 @@ struct DriveInfo {
     float stall_current;
     float stall_timeout;
     float stall_tolerance;
+    float calibration_voltage;
 
     const GpioPin l_pins[3];
     const GpioPin en_pin;
