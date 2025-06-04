@@ -57,9 +57,9 @@ public:
 
     FOC(
         float T,
-        const PIDConfig& control_config,
-        const PIDConfig& q_config,
-        const PIDConfig& d_config,
+        PIDConfig&& control_config,
+        PIDConfig&& q_config,
+        PIDConfig&& d_config,
         const DriveLimits& drive_limits,
         const DriveInfo& drive_info,
         TIM_HandleTypeDef* htim,
@@ -81,6 +81,16 @@ public:
 
     float get_electric_angle() {
         return elec_angle;
+    }
+
+    void update_q_config(PIDConfig&& new_config) {
+        q_reg.update_config(std::move(new_config));
+    }
+    void update_d_config(PIDConfig&& new_config) {
+        d_reg.update_config(std::move(new_config));
+    }
+    void update_control_config(PIDConfig&& new_config) {
+        control_reg.update_config(std::move(new_config));
     }
 
     void update() override;

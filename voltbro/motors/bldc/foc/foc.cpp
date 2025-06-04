@@ -151,13 +151,9 @@ void FOC::update() {
     const float diff_D = I_D - tempD;
     const float diff_Q = I_Q - tempQ;
 
-    /*
     const float LPF_COEFFICIENT = 0.0925f;  // Low-pass filter coefficient
     I_D = I_D - (LPF_COEFFICIENT * diff_D);
     I_Q = I_Q - (LPF_COEFFICIENT * diff_Q);
-    */
-    I_D = tempD;  // use raw values for now
-    I_Q = tempQ;
 
     shaft_torque = I_Q * drive_info.torque_const * (float)drive_info.common.gear_ratio;
     #ifdef IS_GLOBAL_CONTROL_VARIABLES
@@ -173,12 +169,9 @@ void FOC::update() {
         #ifndef IS_GLOBAL_CONTROL_VARIABLES
         float i_d_error, i_q_error, d_response, q_response, i_q_set;
         #endif
-        /*
         i_d_error = -I_D;
-        d_response = q_reg.regulation(i_d_error, T, true);
+        d_response = d_reg.regulation(i_d_error, T);
         V_d = std::clamp(d_response, -inverter.get_busV(), inverter.get_busV());
-        */
-        V_d = 0;
 
         i_q_set = 0.0f;
         if (point_type == SetPointType::TORQUE) {
@@ -199,7 +192,10 @@ void FOC::update() {
         if (abs(i_q_set) > abs_max_current_from_torque) {
             i_q_set = copysign(abs_max_current_from_torque, i_q_set);
         }
-        if (abs(i_q_set) > drive_limits.current_limit) {
+        if (
+            drive_limits.current_limit > 0 &&
+            (abs(i_q_set) > abs(drive_limits.current_limit))
+        ) {
             i_q_set = copysign(drive_limits.current_limit, i_q_set);
         }
         // absolute limit on currents defined by the hardware safe operation region
@@ -208,7 +204,7 @@ void FOC::update() {
         }
 
         i_q_error = i_q_set - I_Q;
-        q_response = q_reg.regulation(i_q_error, T, false);
+        q_response = q_reg.regulation(i_q_error, T);
         V_q = std::clamp(q_response, -inverter.get_busV(), inverter.get_busV());
     }
 
