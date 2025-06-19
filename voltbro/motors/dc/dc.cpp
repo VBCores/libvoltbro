@@ -1,4 +1,4 @@
-#if defined(STM32G474xx) || defined(STM32_G)
+#if defined(STM32G4) || defined(STM32_G)
 #include "dc.h"
 #if defined(HAL_DAC_MODULE_ENABLED) && defined(HAL_TIM_MODULE_ENABLED)
 
