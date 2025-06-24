@@ -7,11 +7,7 @@
 
 #include "../bldc.h"
 #include "voltbro/encoders/generic.h"
-
-enum class FOCMode {
-    NORMAL,
-    PI_CURRENT
-};
+#include "voltbro/math/regulators/pid.hpp"
 
 constexpr size_t CALIBRATION_BUFF_SIZE = 1024;
 using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
@@ -26,13 +22,16 @@ struct CalibrationData {
     __non_const_calib_array_t calibration_array;
 };
 
+
 /**
  * Field oriented control.
  */
 class FOC: public BLDCController  {
 private:
-    FOCMode mode;
     GenericEncoder& encoder;
+    PIDRegulator q_reg;
+    PIDRegulator d_reg;
+    PIDRegulator control_reg;
     float T;
     float raw_elec_angle = 0;
     float elec_angle = 0;
@@ -58,26 +57,40 @@ public:
 
     FOC(
         float T,
-        float user_current_limit,
-        DriveInfo&& drive_info,
+        PIDConfig&& control_config,
+        PIDConfig&& q_config,
+        PIDConfig&& d_config,
+        const DriveLimits& drive_limits,
+        const DriveInfo& drive_info,
         TIM_HandleTypeDef* htim,
         ADC_HandleTypeDef* hadc,
-        GenericEncoder& encoder,
-        FOCMode mode = FOCMode::NORMAL
+        GenericEncoder& encoder
     ):
         BLDCController(
-            user_current_limit,
-            std::move(drive_info),
+            drive_limits,
+            drive_info,
             htim,
             hadc
         ),
-        mode(mode),
         encoder(encoder),
-        T(T)
+        T(T),
+        control_reg(std::move(control_config)),
+        q_reg(std::move(q_config)),
+        d_reg(std::move(d_config))
         {}
 
     float get_electric_angle() {
         return elec_angle;
+    }
+
+    void update_q_config(PIDConfig&& new_config) {
+        q_reg.update_config(std::move(new_config));
+    }
+    void update_d_config(PIDConfig&& new_config) {
+        d_reg.update_config(std::move(new_config));
+    }
+    void update_control_config(PIDConfig&& new_config) {
+        control_reg.update_config(std::move(new_config));
     }
 
     void update() override;

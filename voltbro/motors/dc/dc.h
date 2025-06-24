@@ -27,6 +27,7 @@ struct DCDriverConfig {
     const CommonDriverConfig common;
 };
 
+
 class DCMotorController: public AbstractMotor {
 private:
     const DCDriverConfig config;
@@ -44,19 +45,22 @@ private:
     float current_pwm;
 public:
     DCMotorController(
-        const DCDriverConfig&& driver,
+        const DCDriverConfig& driver_config,
+        const DriveLimits& limits,
         GenericEncoder& encoder,
         bool is_using_brake = false
     ):
-        AbstractMotor(),
-        config(std::move(driver)),
+        AbstractMotor(),  // calls correct check_limits via CRTP
+        config(driver_config),
         encoder(encoder),
         is_using_brake(is_using_brake)
-    {};
+    {
+        set_limits(limits);
+    };
 
     HAL_StatusTypeDef init() override;
     HAL_StatusTypeDef set_state(bool) override;
-    HAL_StatusTypeDef set_Ipeak(float);
+    virtual HAL_StatusTypeDef apply_limits() override;
     void update() override;
     void set_pulse(float pwm);
 
@@ -65,9 +69,6 @@ public:
     }
     float get_angle() const {
         return angle;
-    }
-    float get_Ipeak() const {
-        return Ipeak;
     }
     HAL_StatusTypeDef stop() override {
         return set_state(false);

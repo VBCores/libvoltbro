@@ -47,35 +47,6 @@ HAL_StatusTypeDef BLDCController::set_state(bool state) {
     }
 }
 
-void step_to_phases(EncoderStep step, DrivePhase& first, DrivePhase& second) {
-    switch (step) {
-        case EncoderStep::AB:
-            first = DrivePhase::PHASE_A;
-            second = DrivePhase::PHASE_B;
-            break;
-        case EncoderStep::AC:
-            first = DrivePhase::PHASE_A;
-            second = DrivePhase::PHASE_C;
-            break;
-        case EncoderStep::BC:
-            first = DrivePhase::PHASE_B;
-            second = DrivePhase::PHASE_C;
-            break;
-        case EncoderStep::BA:
-            first = DrivePhase::PHASE_B;
-            second = DrivePhase::PHASE_A;
-            break;
-        case EncoderStep::CA:
-            first = DrivePhase::PHASE_C;
-            second = DrivePhase::PHASE_A;
-            break;
-        case EncoderStep::CB:
-            first = DrivePhase::PHASE_C;
-            second = DrivePhase::PHASE_B;
-            break;
-    }
-}
-
 #ifdef DEBUG
 double cur_time = 0;
 double stall_start_time = 0;
@@ -101,14 +72,14 @@ void BLDCController::detect_stall(double passed_time_abs) {
         // TODO: burst
         // if (drive->is_bursting) {
         if ((cur_time - stall_start_time) > drive_info.stall_timeout) {
-            current_limit = drive_info.stall_current;
+            drive_limits.current_limit = drive_info.stall_current;
             // drive->is_bursting = false;
         }
     }
 }
 
 void BLDCController::quit_stall() {
-    current_limit = user_current_limit;
+    drive_limits.current_limit = drive_limits.user_current_limit;
     is_stalling = false;
 }
 

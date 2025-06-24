@@ -7,7 +7,7 @@ void FOC::set_windings_calibration(float target_angle) {
     float s = arm_sin_f32(target_angle);
     float c = arm_cos_f32(target_angle);
 
-    const float V_d = -0.35f;
+    const float V_d = -drive_info.calibration_voltage;
     const float V_q = 0.0f;
 
     float DVA, DVB, DVC;
@@ -81,7 +81,7 @@ void FOC::calibrate(CalibrationData* calibration_data) {
     float d_offset = current_angle;
 
     uint32_t timestamp = HAL_GetTick();
-     float old_angle = raw_elec_angle;
+    float old_angle = raw_elec_angle;
     // rotate in positive direction until you make full mechanical rotation
     // f_elec_angle < 2*PI
     while( (old_angle - raw_elec_angle) < PI || HAL_GetTick() < timestamp + 100 ) {
@@ -148,11 +148,11 @@ void FOC::calibrate(CalibrationData* calibration_data) {
     }
 
     // encoder-magnet nonlinearity compensation lookup table should be calculated here
-    for( int i = 0; i < calibration_data->ppair_counter; i++ ) {
+    for( int i = 0; i < drive_info.common.ppairs; i++ ) {
         int16_t enc_angle = offset_samples[i];
         calibration_data->meas_elec_offset += (encoder.CPR / drive_info.common.ppairs) - (enc_angle % (encoder.CPR / drive_info.common.ppairs));
     }
-    calibration_data->meas_elec_offset /= calibration_data->ppair_counter;
+    calibration_data->meas_elec_offset /= drive_info.common.ppairs;
 }
 
 #endif

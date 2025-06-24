@@ -6,6 +6,8 @@
 #include "voltbro/encoders/generic.h"
 #include "voltbro/utils.hpp"
 
+#include <memory>
+
 #ifndef ARM_MATH_CM4
 constexpr float PI = 3.14159265359;
 #endif
@@ -15,19 +17,58 @@ struct CommonDriverConfig {
     const uint8_t gear_ratio = 1;
 };
 
-/**
- * Abstract base class for all motor APIs
- */
+struct DriveLimits {
+    float current_limit = -1;  // Real current limit for operation
+    float user_current_limit = -1;  // Limit set by user. Can be superseded by motor parameters - stall current, etc.
+
+    float user_torque_limit = -1;
+    float user_voltage_limit = -1;
+    float user_speed_limit = -1;
+    float user_position_lower_limit = -1;
+    float user_position_upper_limit = -1;
+};
+
+
 class AbstractMotor {
 protected:
-    float current_limit = 0;  // Real current limit for operation
-    float user_current_limit = 0;  // Limit set by user. Can be superseded by motor parameters - stall current, etc.
+    DriveLimits drive_limits;
+    AbstractMotor() {}
 public:
     virtual HAL_StatusTypeDef init() = 0;
     virtual HAL_StatusTypeDef stop() = 0;
     virtual HAL_StatusTypeDef start() = 0;
     virtual HAL_StatusTypeDef set_state(bool) = 0;
     virtual void update() = 0;
+
+    virtual HAL_StatusTypeDef apply_limits() {
+        if (drive_limits.current_limit <= 0) {
+            drive_limits.current_limit = drive_limits.user_current_limit;
+        }
+        return HAL_OK;
+    };
+    virtual bool check_limits(const DriveLimits& limits) {
+        if (
+            limits.user_position_lower_limit > pi2 || limits.user_position_upper_limit > pi2 ||
+            (
+                limits.user_position_lower_limit > 0 && limits.user_position_upper_limit > 0 &&
+                drive_limits.user_position_upper_limit < limits.user_position_lower_limit
+            )
+        ) {
+            return false;
+        }
+        return true;
+    }
+    bool set_limits(const DriveLimits& limits) {
+        if (check_limits(limits)) {
+            return false;
+        }
+        drive_limits = limits;
+        auto result = apply_limits();
+        if (result != HAL_OK) {
+            return false;
+        }
+        return true;
+    }
 };
 
 inline float calculate_angle_simple(
