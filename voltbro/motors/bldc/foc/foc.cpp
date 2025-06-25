@@ -225,5 +225,4 @@ void FOC::update() {
     set_pwm();
 }
 
-
 #endif
