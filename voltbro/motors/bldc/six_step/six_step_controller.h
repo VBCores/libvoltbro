@@ -18,14 +18,14 @@ public:
         DriveLimits& limits,
         DriveInfo& drive_info,
         TIM_HandleTypeDef* htim,
-        ADC_HandleTypeDef* hadc,
+        BaseInverter& inverter,
         HallSensor& hall_sensor
     ):
         BLDCController(
             limits,
             drive_info,
             htim,
-            hadc
+            inverter
         ),
         hall_sensor(hall_sensor)
     {}
@@ -45,13 +45,13 @@ public:
         if (DrivePhase::PHASE_C != from && DrivePhase::PHASE_C != to)
             off = DrivePhase::PHASE_C;
 
-        drive_info.l_pins[to_underlying(off)].reset();
+        drive_info.l_pins.value()[to_underlying(off)].reset();
         DQs[to_underlying(off)] = 0;
 
-        drive_info.l_pins[to_underlying(from)].set();
+        drive_info.l_pins.value()[to_underlying(from)].set();
         DQs[to_underlying(from)] = actual_pwm;
 
-        drive_info.l_pins[to_underlying(to)].set();
+        drive_info.l_pins.value()[to_underlying(to)].set();
         DQs[to_underlying(to)] = 0;
     }
 

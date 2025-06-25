@@ -5,6 +5,8 @@
 #if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED)
 
 #include <cstdint>
+#include <optional>
+#include <array>
 
 #include "voltbro/utils.hpp"
 #include "voltbro/math/math_ops.hpp"
@@ -27,7 +29,7 @@ struct DriveInfo {
     float stall_tolerance;
     float calibration_voltage;
 
-    const GpioPin l_pins[3];
+    const std::optional<std::array<GpioPin, 3>> l_pins = std::nullopt;
     const GpioPin en_pin;
     const CommonDriverConfig common;
 };
@@ -39,7 +41,7 @@ struct DriveInfo {
 class BLDCController: public AbstractMotor {
 protected:
     const DriveInfo drive_info;
-    Inverter inverter;
+    BaseInverter& inverter;
     const int32_t full_pwm;
     TIM_HandleTypeDef* const htim;
 
@@ -57,11 +59,11 @@ public:
         const DriveLimits& limits,
         const DriveInfo& drive_info,
         TIM_HandleTypeDef* htim,
-        ADC_HandleTypeDef* hadc
+        BaseInverter& inverter
     ):
         AbstractMotor(),
         drive_info(drive_info),
-        inverter(hadc),
+        inverter(inverter),
         full_pwm(htim->Instance->ARR),
         htim(htim)
     {
@@ -113,7 +115,7 @@ public:
     const DriveInfo& get_info() const {
         return drive_info;
     }
-    const Inverter& get_inverter() const {
+    const BaseInverter& get_inverter() const {
         return inverter;
     }
     bool is_on() const {
@@ -139,7 +141,7 @@ public:
     HAL_StatusTypeDef start() override;
     HAL_StatusTypeDef set_state(bool) override;
 
-    __attribute__((always_inline)) void set_pwm() {
+    virtual void set_pwm() {
         __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, DQs[0]);
         __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, DQs[1]);
         __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, DQs[2]);

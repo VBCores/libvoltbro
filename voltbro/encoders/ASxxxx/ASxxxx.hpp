@@ -129,6 +129,15 @@ public:
 
         value = new_value;
     }
+
+    HAL_StatusTypeDef init() override {
+        HAL_StatusTypeDef result = GenericEncoder::init();
+        if (result != HAL_OK) {
+            return result;
+        }
+        start_streaming();
+        return HAL_OK;
+    }
 };
 
 #endif

@@ -19,7 +19,20 @@ struct CalibrationData {
     bool is_encoder_inverted;
     uint16_t ppair_counter;
     uint16_t meas_elec_offset;
+    #ifdef USE_CALIBRATION_ARRAY
     __non_const_calib_array_t calibration_array;
+    #endif
+
+    void reset() {
+        type_id = TYPE_ID;
+        was_calibrated = false;
+        is_encoder_inverted = false;
+        ppair_counter = 0;
+        meas_elec_offset = 0;
+        #ifdef USE_CALIBRATION_ARRAY
+        calibration_array.fill(0);
+        #endif
+    }
 };
 
 
@@ -44,16 +57,16 @@ private:
     float reset_to_zero(float start_angle, float d_delta);
     bool check_if_inverted(float start_angle, float d_delta);
 public:
-    void calibrate(CalibrationData* calibration_data);
-    void apply_calibration(CalibrationData* calibration_data) {
+    void calibrate(CalibrationData& calibration_data);
+    void apply_calibration(CalibrationData& calibration_data) {
         // Replace config parameters with the ones loaded from EEPROM
         // Very ugly hack, but it will work for now
-        const_cast<int&>(encoder.electric_offset) = calibration_data->meas_elec_offset;
-        lookup_table = &(calibration_data->calibration_array);
-        const_cast<bool&>(encoder.is_inverted) = calibration_data->is_encoder_inverted;
+        const_cast<int&>(encoder.electric_offset) = calibration_data.meas_elec_offset;
+        #ifdef USE_CALIBRATION_ARRAY
+        lookup_table = &(calibration_data.calibration_array);
+        #endif
+        const_cast<bool&>(encoder.is_inverted) = calibration_data.is_encoder_inverted;
     }
-
-    void update_sensors();
 
     FOC(
         float T,
@@ -63,14 +76,14 @@ public:
         const DriveLimits& drive_limits,
         const DriveInfo& drive_info,
         TIM_HandleTypeDef* htim,
-        ADC_HandleTypeDef* hadc,
-        GenericEncoder& encoder
+        GenericEncoder& encoder,
+        BaseInverter& inverter
     ):
         BLDCController(
             drive_limits,
             drive_info,
             htim,
-            hadc
+            inverter
         ),
         encoder(encoder),
         T(T),
@@ -93,7 +106,16 @@ public:
         control_reg.update_config(std::move(new_config));
     }
 
+    HAL_StatusTypeDef init() override {
+        HAL_StatusTypeDef result = BLDCController::init();
+        if (result != HAL_OK) {
+            return result;
+        }
+
+        return encoder.init();
+    }
     void update() override;
+    virtual void update_sensors();
 };
 
 #endif

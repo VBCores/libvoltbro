@@ -30,7 +30,7 @@ bool FOC::check_if_inverted(float start_angle, float d_delta) {
     size_t step_counter = 0;
     size_t decrease_counter = 0;
     size_t increase_counter = 0;
-    while(step_counter < 100) {
+    while(step_counter < 200) {
         step_counter += 1;
         diff = old_angle - raw_elec_angle;
         if (diff > 0) {
@@ -67,15 +67,17 @@ float FOC::reset_to_zero(float start_angle, float d_delta) {
 }
 
 uint16_t offset_samples[CALIBRATION_BUFF_SIZE] = {0};
+#ifdef USE_CALIBRATION_ARRAY
 float CalBuf_Fwd[CALIBRATION_BUFF_SIZE] = {0};
 float CalBuf_Bckwd[CALIBRATION_BUFF_SIZE] = {0};
+#endif
 
-void FOC::calibrate(CalibrationData* calibration_data) {
+void FOC::calibrate(CalibrationData& calibration_data) {
     float current_angle = 0;
     float d_delta = 0.25f * (float)drive_info.common.ppairs * pi2 / (float)CALIBRATION_BUFF_SIZE;
 
-    calibration_data->is_encoder_inverted = check_if_inverted(current_angle, d_delta);
-    const_cast<bool&>(encoder.is_inverted) = calibration_data->is_encoder_inverted;
+    calibration_data.is_encoder_inverted = check_if_inverted(current_angle, d_delta);
+    const_cast<bool&>(encoder.is_inverted) = calibration_data.is_encoder_inverted;
 
     current_angle = reset_to_zero(current_angle, d_delta);
     float d_offset = current_angle;
@@ -87,14 +89,15 @@ void FOC::calibrate(CalibrationData* calibration_data) {
     while( (old_angle - raw_elec_angle) < PI || HAL_GetTick() < timestamp + 100 ) {
         old_angle = raw_elec_angle;
 
+        #ifdef USE_CALIBRATION_ARRAY
         uint16_t index = (uint16_t)( (float)CALIBRATION_BUFF_SIZE*raw_elec_angle / (2.0f*PI) );
         CalBuf_Fwd[ index ] = ( current_angle - d_offset ) / drive_info.common.ppairs - raw_elec_angle;
-
         // current algorithm sometimes leaves empty values in calibration buffer
         // this part fills the upcoming array member with the current value, which is overwritten in case of successful new reading
         if( index < CALIBRATION_BUFF_SIZE ) {
             CalBuf_Fwd[ index + 1 ] = CalBuf_Fwd[ index ];
         }
+        #endif
 
         current_angle += d_delta;
 
@@ -103,8 +106,8 @@ void FOC::calibrate(CalibrationData* calibration_data) {
         update_angle();
 
         if( fabs( mfmod( current_angle, 2.0f*PI ) - PI ) < d_delta / 2.0f ) {
-            offset_samples[calibration_data->ppair_counter] = encoder.get_value();
-            calibration_data->ppair_counter += 1;
+            offset_samples[calibration_data.ppair_counter] = encoder.get_value();
+            calibration_data.ppair_counter += 1;
         }
     }
 
@@ -126,14 +129,15 @@ void FOC::calibrate(CalibrationData* calibration_data) {
     while ( (old_angle - raw_elec_angle) > -PI || HAL_GetTick() < timestamp + 100 ) {
         old_angle = raw_elec_angle;
 
+        #ifdef USE_CALIBRATION_ARRAY
         uint16_t index = (uint16_t)( (float)CALIBRATION_BUFF_SIZE*raw_elec_angle / (2.0f*PI) );
         CalBuf_Bckwd[index] = (current_angle - d_offset) / drive_info.common.ppairs - raw_elec_angle;
-
         // current algorithm sometimes leaves empty values in calibration buffer
         // this part fills the upcoming array member with the current value, which is overwritten in case of successful new reading
         if(index > 0) {
             CalBuf_Bckwd[index - 1] = CalBuf_Bckwd[index];
         }
+        #endif
 
         current_angle -= d_delta;
 
@@ -142,17 +146,17 @@ void FOC::calibrate(CalibrationData* calibration_data) {
         update_angle();
 
         if( fabs( mfmod( current_angle, 2.0f*PI ) - PI ) < d_delta/2.0f ) {
-            offset_samples[calibration_data->ppair_counter] = encoder.get_value();
-            calibration_data->ppair_counter += 1;
+            offset_samples[calibration_data.ppair_counter] = encoder.get_value();
+            calibration_data.ppair_counter += 1;
         }
     }
 
     // encoder-magnet nonlinearity compensation lookup table should be calculated here
     for( int i = 0; i < drive_info.common.ppairs; i++ ) {
         int16_t enc_angle = offset_samples[i];
-        calibration_data->meas_elec_offset += (encoder.CPR / drive_info.common.ppairs) - (enc_angle % (encoder.CPR / drive_info.common.ppairs));
+        calibration_data.meas_elec_offset += (encoder.CPR / drive_info.common.ppairs) - (enc_angle % (encoder.CPR / drive_info.common.ppairs));
     }
-    calibration_data->meas_elec_offset /= drive_info.common.ppairs;
+    calibration_data.meas_elec_offset /= drive_info.common.ppairs;
 }
 
 #endif

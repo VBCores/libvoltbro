@@ -4,10 +4,12 @@
 #if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED)
 
 HAL_StatusTypeDef BLDCController::init() {
-    inverter.start();
-    for (auto pin : drive_info.l_pins) {
-        pin.set();
+    if (drive_info.l_pins.has_value()) {
+        for (auto pin : drive_info.l_pins.value()) {
+            pin.set();
+        }
     }
+
     HAL_StatusTypeDef result = HAL_TIM_PWM_Start(htim, TIM_CHANNEL_1); // A-phase
     if (result != HAL_OK) {
         return result;
@@ -17,7 +19,12 @@ HAL_StatusTypeDef BLDCController::init() {
         return result;
     }
     result = HAL_TIM_PWM_Start(htim, TIM_CHANNEL_3); // C-phase
-    return result;
+    if (result != HAL_OK) {
+        return result;
+    }
+
+    inverter.start();
+    return HAL_OK;
 }
 
 HAL_StatusTypeDef BLDCController::stop() {
@@ -27,12 +34,15 @@ HAL_StatusTypeDef BLDCController::stop() {
 }
 
 HAL_StatusTypeDef BLDCController::start() {
+    /*
     for (int i = 0; i < 3; i++) {
         drive_info.en_pin.reset();
         HAL_Delay(10);
         drive_info.en_pin.set();
         HAL_Delay(10);
     }
+    */
+    drive_info.en_pin.set();
     quit_stall();
     _is_on = true;
     return HAL_OK;
