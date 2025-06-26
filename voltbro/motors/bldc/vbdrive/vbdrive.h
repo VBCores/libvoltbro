@@ -62,8 +62,8 @@ public:
             return;
         }
 
-        const float shunt_res = 0.003f; //
-        const float op_amp_gain = 20.0f; // V/V
+        const float shunt_res = 0.003f;
+        const float op_amp_gain = 20.0f;
         const float conv_factor = shunt_res * op_amp_gain;
 
         I_A = (read_raw_A() - I_A_offset ) / conv_factor;
@@ -73,8 +73,8 @@ public:
 
         const float TS_CAL1_TEMP = 30u;
         const float TS_CAL2_TEMP = 130u;
-        float TS_CAL1 = (float)*(uint16_t*)0x1FFF75A8;
-        float TS_CAL2 = (float)*(uint16_t*)0x1FFF75CA;
+        volatile float TS_CAL1 = (float)*(uint16_t*)0x1FFF75A8;
+        volatile float TS_CAL2 = (float)*(uint16_t*)0x1FFF75CA;
         mcu_temperature = (TS_CAL2_TEMP - TS_CAL1_TEMP) * (read_raw_T() - TS_CAL1) / ( TS_CAL2 - TS_CAL1 ) + TS_CAL1_TEMP;
 
         float thermistor = 1.0f / (4095.0f / ADC_2_buffer[1] - 1);
@@ -114,12 +114,9 @@ public:
         {}
 
         void update() override {};
-        void update_sensors() override {};
-        HAL_StatusTypeDef init() override {
-            inverter.start();
 
-            HAL_StatusTypeDef result;
-            result = HAL_TIM_PWM_Start(htim, TIM_CHANNEL_1); // A-phase
+        HAL_StatusTypeDef init() override {
+            HAL_StatusTypeDef result = FOC::init();
             if (result != HAL_OK) {
                 return result;
             }
@@ -127,15 +124,7 @@ public:
             if (result != HAL_OK) {
                 return result;
             }
-            result = HAL_TIM_PWM_Start(htim, TIM_CHANNEL_2); // B-phase
-            if (result != HAL_OK) {
-                return result;
-            }
             result = HAL_TIMEx_PWMN_Start(htim, TIM_CHANNEL_2); // BN-phase
-            if (result != HAL_OK) {
-                return result;
-            }
-            result = HAL_TIM_PWM_Start(htim, TIM_CHANNEL_3); // C-phase
             if (result != HAL_OK) {
                 return result;
             }
