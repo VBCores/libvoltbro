@@ -13,7 +13,7 @@ constexpr size_t CALIBRATION_BUFF_SIZE = 1024;
 using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
 using calibration_array_t = const __non_const_calib_array_t;
 struct CalibrationData {
-    static constexpr uint32_t TYPE_ID = 0x89ABCDEF;
+    static constexpr uint32_t TYPE_ID = 0x98ABCDEF;
     uint32_t type_id;
     bool was_calibrated = false;
     bool is_encoder_inverted;

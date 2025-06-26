@@ -3,7 +3,17 @@
 
 #include "voltbro/math/transform.hpp"
 
+#ifdef DEBUG
+static volatile float current_target_angle = 0;
+static volatile encoder_data current_encoder_value = 0;
+#define update_angle(); \
+    update_angle(); current_encoder_value = encoder.get_value();
+#endif
+
 void FOC::set_windings_calibration(float target_angle) {
+    #ifdef DEBUG
+    current_target_angle = target_angle;
+    #endif
     float s = arm_sin_f32(target_angle);
     float c = arm_cos_f32(target_angle);
 
