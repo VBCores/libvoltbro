@@ -20,33 +20,24 @@ private:
     )>;
 
     HAL_StatusTypeDef memory_op(eeprom_operation operation, uint8_t* bytes, size_t size, uint16_t address) {
-        uint16_t page_number = 0;
+        uint16_t bytes_processed = 0;
 
         HAL_StatusTypeDef result = HAL_OK;
-        while( size > page_size )
-        {
+        while (bytes_processed < size) {
+            uint16_t chunk_size = std::min(static_cast<uint16_t>(size - bytes_processed), page_size);
+
             result = static_cast<HAL_StatusTypeDef>(result & operation(
                 i2c,
                 device_id << 1,
-                address + page_size * page_number,
+                address + bytes_processed,
                 I2C_MEMADD_SIZE_16BIT,
-                bytes + page_size * page_number,
-                page_size,
+                bytes + bytes_processed,
+                chunk_size,
                 100
             ));
-            page_number += 1;
-            size -= page_size;
+            bytes_processed += chunk_size;
             delay();
         }
-        result = static_cast<HAL_StatusTypeDef>(result & operation(
-            i2c,
-            device_id << 1,
-            address + page_size * page_number,
-            I2C_MEMADD_SIZE_16BIT,
-            bytes + page_size * page_number,
-            size,
-            100
-        ));
         return result;
     }
 
@@ -54,8 +45,8 @@ public:
     explicit EEPROM(I2C_HandleTypeDef* i2c): i2c(i2c) {};
 
     void __attribute__((optimize("O0"))) delay() {
-        // TODO: 4 is empirical value, probably needs fix
-        HAL_Delay(4);
+        // TODO: 5 is empirical value, probably needs fix
+        HAL_Delay(5);
     }
 
     bool is_connected(void) {
