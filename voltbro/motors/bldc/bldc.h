@@ -122,7 +122,7 @@ public:
         return _is_on;
     }
     float get_angle() const {
-        return shaft_angle;
+        return shaft_angle + drive_info.common.user_angle_offset;
     }
     float get_velocity() const {
         return shaft_velocity;

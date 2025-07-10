@@ -76,13 +76,11 @@ float FOC::reset_to_zero(float start_angle, float d_delta) {
     return raw_elec_angle;
 }
 
-uint16_t offset_samples[CALIBRATION_BUFF_SIZE] = {0};
-#ifdef USE_CALIBRATION_ARRAY
-float CalBuf_Fwd[CALIBRATION_BUFF_SIZE] = {0};
-float CalBuf_Bckwd[CALIBRATION_BUFF_SIZE] = {0};
-#endif
-
 void FOC::calibrate(CalibrationData& calibration_data) {
+    uint16_t offset_samples[CALIBRATION_BUFF_SIZE] = {0};
+    float CalBuf_Fwd[CALIBRATION_BUFF_SIZE] = {0};
+    float CalBuf_Bckwd[CALIBRATION_BUFF_SIZE] = {0};
+
     float current_angle = 0;
     float d_delta = 0.25f * (float)drive_info.common.ppairs * pi2 / (float)CALIBRATION_BUFF_SIZE;
 
@@ -96,10 +94,9 @@ void FOC::calibrate(CalibrationData& calibration_data) {
     float old_angle = raw_elec_angle;
     // rotate in positive direction until you make full mechanical rotation
     // f_elec_angle < 2*PI
-    while( (old_angle - raw_elec_angle) < PI || HAL_GetTick() < timestamp + 100 ) {
+    while( (old_angle - raw_elec_angle) < PI || (HAL_GetTick() < timestamp + 100) ) {
         old_angle = raw_elec_angle;
 
-        #ifdef USE_CALIBRATION_ARRAY
         uint16_t index = (uint16_t)( (float)CALIBRATION_BUFF_SIZE*raw_elec_angle / (2.0f*PI) );
         CalBuf_Fwd[ index ] = ( current_angle - d_offset ) / drive_info.common.ppairs - raw_elec_angle;
         // current algorithm sometimes leaves empty values in calibration buffer
@@ -107,7 +104,6 @@ void FOC::calibrate(CalibrationData& calibration_data) {
         if( index < CALIBRATION_BUFF_SIZE ) {
             CalBuf_Fwd[ index + 1 ] = CalBuf_Fwd[ index ];
         }
-        #endif
 
         current_angle += d_delta;
 
@@ -136,10 +132,9 @@ void FOC::calibrate(CalibrationData& calibration_data) {
     timestamp = HAL_GetTick();
     old_angle = raw_elec_angle;
     // rotate in negative direction until you return to the beginning
-    while ( (old_angle - raw_elec_angle) > -PI || HAL_GetTick() < timestamp + 100 ) {
+    while ( (old_angle - raw_elec_angle) > -PI || (HAL_GetTick() < timestamp + 100) ) {
         old_angle = raw_elec_angle;
 
-        #ifdef USE_CALIBRATION_ARRAY
         uint16_t index = (uint16_t)( (float)CALIBRATION_BUFF_SIZE*raw_elec_angle / (2.0f*PI) );
         CalBuf_Bckwd[index] = (current_angle - d_offset) / drive_info.common.ppairs - raw_elec_angle;
         // current algorithm sometimes leaves empty values in calibration buffer
@@ -147,7 +142,6 @@ void FOC::calibrate(CalibrationData& calibration_data) {
         if(index > 0) {
             CalBuf_Bckwd[index - 1] = CalBuf_Bckwd[index];
         }
-        #endif
 
         current_angle -= d_delta;
 
@@ -161,12 +155,13 @@ void FOC::calibrate(CalibrationData& calibration_data) {
         }
     }
 
-    // encoder-magnet nonlinearity compensation lookup table should be calculated here
     for( int i = 0; i < drive_info.common.ppairs; i++ ) {
         int16_t enc_angle = offset_samples[i];
         calibration_data.meas_elec_offset += (encoder.CPR / drive_info.common.ppairs) - (enc_angle % (encoder.CPR / drive_info.common.ppairs));
     }
     calibration_data.meas_elec_offset /= drive_info.common.ppairs;
+
+    // TODO: calculate calibration curve here
 }
 
 #endif

@@ -15,6 +15,7 @@ constexpr float PI = 3.14159265359;
 struct CommonDriverConfig {
     const uint8_t ppairs = 1;
     const uint8_t gear_ratio = 1;
+    const float user_angle_offset = 0.0f;
 };
 
 struct DriveLimits {

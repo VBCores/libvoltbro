@@ -32,7 +32,7 @@ bool safe_stof(const std::string& str, float& out_val) {
     return true;
 }
 
-bool get_base_params(BaseConfigData* data, std::string& param, UARTResponseAccumulator& responses) {
+bool get_base_params(BaseConfigData* data, const std::string& param, UARTResponseAccumulator& responses) {
     if (param == NODE_ID_PARAM) {
         responses.append("node_id:%u\n\r", data->node_id);
     }
@@ -50,8 +50,8 @@ bool get_base_params(BaseConfigData* data, std::string& param, UARTResponseAccum
 
 bool set_base_params(
     BaseConfigData* data,
-    std::string& param,
-    std::string& value,
+    const std::string& param,
+    const std::string& value,
     UARTResponseAccumulator& responses,
     bool& was_found
 ) {
