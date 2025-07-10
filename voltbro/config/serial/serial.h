@@ -13,7 +13,7 @@
 #include <cstdarg>
 #include <cstring>
 
-static constexpr size_t MAX_SIZE = 256;
+static constexpr size_t MAX_SIZE = 512;
 extern char buffer[MAX_SIZE];
 
 // TODO: check that buffer is not used by 2 accumulators at the same time
@@ -33,14 +33,18 @@ public:
 
     void append(const char* fmt, ...) {
         if (pos >= MAX_SIZE) return;
+        if (pos > 0) {
+            // Overwrite the last \0
+            pos--;
+        }
 
         va_list args;
         va_start(args, fmt);
-        int written = snprintf(buffer + pos, MAX_SIZE - pos, fmt, args);
+        int written = vsnprintf(buffer + pos, MAX_SIZE - pos, fmt, args);
         va_end(args);
 
         if (written > 0) {
-            pos += std::min(written, static_cast<int>(MAX_SIZE - pos));
+            pos += written;
         }
     }
 };
@@ -83,12 +87,12 @@ struct BaseConfigData {
     FDCANDataBaud fdcan_data_baud = FDCANDataBaud::KHz8000;
 };
 
-bool get_base_params(BaseConfigData* data, std::string& param, UARTResponseAccumulator& responses);
+bool get_base_params(BaseConfigData* data, const std::string& param, UARTResponseAccumulator& responses);
 
 bool set_base_params(
     BaseConfigData* data,
-    std::string& param,
-    std::string& value,
+    const std::string& param,
+    const std::string& value,
     UARTResponseAccumulator& responses,
     bool& was_found
 );
@@ -121,6 +125,7 @@ protected:
             Error_Handler();
         }
         responses.append("Got config_data type_id: <0x%08lX>\r\n", config_data.type_id);
+        config_data.print_self(responses);
 
         if (config_data.type_id != ConfigT::TYPE_ID) {
             config_data = ConfigT();
@@ -128,7 +133,7 @@ protected:
             save_config();
         }
 
-        if (!config_data.was_configured) {
+        if (!config_data.was_configured || !config_data.are_required_params_set()) {
             turn_off();
             responses.append("Controller was not configured!\r\n");
         }
@@ -235,6 +240,10 @@ public:
         std::function<void(void)> turn_off
     ): huart(huart), eeprom(eeprom), turn_on(turn_on), turn_off(turn_off) {}
 
+    const ConfigT& get_config() const {
+        return config_data;
+    }
+
     void init() {
         load_config();
         start_uart_recv_it();
@@ -284,6 +293,17 @@ public:
     }
 
 };
+
+#define CHECK_AND_PRINT_PARAM(field_name, param_name) \
+    else if (param == param_name) { \
+        responses.append("%s: %f\n\r", #field_name, field_name); \
+    }
+
+#define CHECK_AND_SET_PARAM(field_name, param_name) \
+    else if (param == param_name) { \
+        field_name = new_float_value; \
+        responses.append("OK: %s :%f\n\r", #field_name, field_name); \
+    }
 
 #endif
 #endif

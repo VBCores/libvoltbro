@@ -18,7 +18,7 @@ void FOC::update_angle() {
 
     encoder_data raw_value = encoder.get_value();
     int offset_value = (int)raw_value + encoder.electric_offset;  // + lookup_table[raw_value >> 5]
-    offset_value -= (float)encoder.CPR / (2.0f * drive_info.common.ppairs);
+    //offset_value -= (float)encoder.CPR / (2.0f * drive_info.common.ppairs);
     if(offset_value > (encoder.CPR - 1)) {
         offset_value -= encoder.CPR;
     }
@@ -69,17 +69,13 @@ void FOC::apply_kalman() {
      * A. Bellini, S. Bifaretti, S. Constantini
      */
     // TODO: get acceleration from inverter?
-    const float a = 0.0f; // expected acceleration, rad/s^2
-    const float g1 =  0.003785056342917592f;
-    const float g2 = 0.11891101743266574f;
-    const float g3 = 1.5473769821028327f;
     static float Th_hat = 0.0f; // Theta hat, rad
     static float W_hat = 0.0f; // Omega hat, rad/s
     static float E_hat = 0.0f; // Epsilon hat, rad/s^2
 
     // (11)
-    float nTh = Th_hat + W_hat*T + (E_hat + a)*(T*T)/2.0f;
-    float nW = W_hat + (E_hat + a)*T;
+    float nTh = Th_hat + W_hat * T + (E_hat + kalman_config.expected_a) * (T*T) / 2.0f;
+    float nW = W_hat + (E_hat + kalman_config.expected_a) * T;
     float nE = E_hat;
 
     nTh = mfmod(nTh, pi2);
@@ -88,9 +84,9 @@ void FOC::apply_kalman() {
     }
 
     // (19)
-    Th_hat = nTh + g1*travel;
-    W_hat = nW + g2*travel;
-    E_hat = nE + g3*travel;
+    Th_hat = nTh + kalman_config.g1 * travel;
+    W_hat = nW + kalman_config.g2 * travel;
+    E_hat = nE + kalman_config.g3 * travel;
 #pragma endregion KALMAN_PAPER
 
     const float ab = pi2 / (float)drive_info.common.ppairs;
@@ -173,30 +169,58 @@ void FOC::update() {
         #ifndef IS_GLOBAL_CONTROL_VARIABLES
         float i_d_error, i_q_error, d_response, q_response, i_q_set;
         #endif
-<<<<<<< HEAD
+
+        SetPointType local_point_type = point_type;
+        float local_target = target;
+
+        float user_angle = get_angle();
+        if ((abs(shaft_torque) - drive_limits.user_torque_limit) > 0.05f) {
+            if (point_type != SetPointType::TORQUE) {
+                local_point_type = SetPointType::TORQUE;
+                local_target = copysign(drive_limits.user_torque_limit, shaft_torque);
+            }
+            // else: should have passed the torque limit check before
+        }
+        else if ((abs(shaft_velocity) - drive_limits.user_speed_limit) > 0.05f) {
+            if (point_type != SetPointType::VELOCITY) {
+                local_point_type = SetPointType::VELOCITY;
+                local_target = copysign(drive_limits.user_speed_limit, shaft_velocity);
+            }
+            // else: should have passed the speed limit check before
+        }
+        else if (user_angle < drive_limits.user_position_lower_limit) {
+            if (point_type != SetPointType::POSITION) {
+                local_point_type = SetPointType::POSITION;
+                local_target = drive_limits.user_position_lower_limit;
+            }
+            // else: should have passed the position limit check before
+        }
+        else if (user_angle > drive_limits.user_position_upper_limit) {
+            if (point_type != SetPointType::POSITION) {
+                local_point_type = SetPointType::POSITION;
+                local_target = drive_limits.user_position_upper_limit;
+            }
+            // else: should have passed the position limit check before
+        }
+        if (local_point_type != point_type) {
+            is_limited = true;
+        }
+
         i_d_error = -I_D;
-        d_response = d_reg.regulation(i_d_error, T);
+        d_response = d_reg.regulation(i_d_error, T, false);
         V_d = std::clamp(d_response, -inverter.get_busV(), inverter.get_busV());
-=======
-        /*
-        i_d_error = -I_D;
-        d_response = q_reg.regulation(i_d_error, T, true);
-        V_d = std::clamp(d_response, -inverter.get_busV(), inverter.get_busV());
-        */
-        V_d = 0;
->>>>>>> 0a119b2 (wip)
 
         i_q_set = 0.0f;
-        if (point_type == SetPointType::TORQUE) {
-            i_q_set = -target / drive_info.torque_const / (float)drive_info.common.gear_ratio;
+        if (local_point_type == SetPointType::TORQUE) {
+            i_q_set = -local_target / drive_info.torque_const / (float)drive_info.common.gear_ratio;
         }
         else {
             float control_error = 0;
-            if (point_type == SetPointType::POSITION) {
-                control_error = target - shaft_angle;
+            if (local_point_type == SetPointType::POSITION) {
+                control_error = local_target - shaft_angle;
             }
-            else if (point_type == SetPointType::VELOCITY) {
-                control_error = target - shaft_velocity;
+            else if (local_point_type == SetPointType::VELOCITY) {
+                control_error = local_target - shaft_velocity;
             }
             i_q_set = control_reg.regulation(control_error, T, false);
         }
@@ -205,26 +229,21 @@ void FOC::update() {
         if (abs(i_q_set) > abs_max_current_from_torque) {
             i_q_set = copysign(abs_max_current_from_torque, i_q_set);
         }
-<<<<<<< HEAD
+
         if (
             drive_limits.current_limit > 0 &&
             (abs(i_q_set) > abs(drive_limits.current_limit))
         ) {
             i_q_set = copysign(drive_limits.current_limit, i_q_set);
         }
-=======
->>>>>>> 0a119b2 (wip)
+
         // absolute limit on currents defined by the hardware safe operation region
         if (abs(i_q_set) > 30.0f) {
             i_q_set = copysign(30.0f, i_q_set);
         }
 
         i_q_error = i_q_set - I_Q;
-<<<<<<< HEAD
-        q_response = q_reg.regulation(i_q_error, T);
-=======
         q_response = q_reg.regulation(i_q_error, T, false);
->>>>>>> 0a119b2 (wip)
         V_q = std::clamp(q_response, -inverter.get_busV(), inverter.get_busV());
     }
 

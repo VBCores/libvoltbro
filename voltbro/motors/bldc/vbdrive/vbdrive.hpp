@@ -6,6 +6,14 @@
 #include "../foc/foc.h"
 
 
+struct HardLimits {
+    float max_speed = NAN;
+    float max_torque = NAN;
+    float angle_offset = NAN;
+    float min_angle = NAN;
+    float max_angle = NAN;
+};
+
 class VBInverter: public BaseInverter {
 private:
     const volatile uint32_t ADC_1_buffer[3] = {};
@@ -91,6 +99,7 @@ class VBDrive: public FOC {
 public:
     VBDrive(
         float T,
+        KalmanConfig&& kalman_config,
         PIDConfig&& control_config,
         PIDConfig&& q_config,
         PIDConfig&& d_config,
@@ -102,6 +111,7 @@ public:
     ):
         FOC(
             T,
+            std::move(kalman_config),
             std::move(control_config),
             std::move(q_config),
             std::move(d_config),
@@ -113,7 +123,7 @@ public:
         )
         {}
 
-        void update() override {};
+        //void update() override {};
 
         HAL_StatusTypeDef init() override {
             HAL_StatusTypeDef result = FOC::init();
@@ -144,6 +154,63 @@ public:
             __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, DQs[0]);
             __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, DQs[1]);
             __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, DQs[2]);
+        }
+
+        void calibrate(CalibrationData& calibration_data) override {
+            uint16_t ppair_roll_counter = 0;
+            std::array<encoder_data, 28> offset_samples = {};  // TODO: make size dynamic
+            float current_angle = 0.0f;
+            const float d_delta = 0.25f * (float)drive_info.common.ppairs * pi2 / (float)CALIBRATION_BUFF_SIZE;
+
+            calibration_data.is_encoder_inverted = check_if_inverted(current_angle, d_delta);
+            const_cast<bool&>(encoder.is_inverted) = calibration_data.is_encoder_inverted;
+
+            current_angle = reset_to_zero(current_angle, d_delta);
+            auto advance_angle = [this, &current_angle, d_delta](float step) {
+                current_angle += step;
+                set_windings_calibration(current_angle);
+                HAL_Delay(5);
+                update_angle();
+            };
+            auto step_forward_a_bit = [this, &advance_angle](float step) {
+                for (int i = 0; i < 256; i++) {
+                    advance_angle(step);
+                }
+            };
+
+            uint32_t timestamp = HAL_GetTick();
+            float old_angle = raw_elec_angle;
+
+            while( (old_angle - raw_elec_angle) < PI || (HAL_GetTick() < timestamp + 100) ) {
+                old_angle = raw_elec_angle;
+                advance_angle(d_delta);
+                if( fabs( mfmod(current_angle, 2.0f*PI ) - PI ) < d_delta/2.0f ) {
+                    offset_samples[ppair_roll_counter] = encoder.get_value();
+                    ppair_roll_counter++;
+                }
+            }
+
+            step_forward_a_bit(d_delta);
+            current_angle = reset_to_zero(current_angle, d_delta);
+
+            timestamp = HAL_GetTick();
+            old_angle = raw_elec_angle;
+            while( (old_angle - raw_elec_angle) > -PI || (HAL_GetTick() < timestamp + 100) ) {
+                old_angle = raw_elec_angle;
+                advance_angle(-d_delta);
+                if( fabs( mfmod(current_angle, 2.0f*PI ) - PI ) < d_delta/2.0f ) {
+                    offset_samples[ppair_roll_counter] = encoder.get_value();
+                    ppair_roll_counter++;
+                }
+            }
+
+            uint16_t measured_elec_offset = 0;
+            for( int i = 0; i < drive_info.common.ppairs; i++ ) {
+                int16_t enc_angle = offset_samples[i];
+                measured_elec_offset += (encoder.CPR / drive_info.common.ppairs) - (enc_angle % (encoder.CPR / drive_info.common.ppairs));
+            }
+            measured_elec_offset /= drive_info.common.ppairs;
+            calibration_data.meas_elec_offset = measured_elec_offset;
         }
 };
 #endif

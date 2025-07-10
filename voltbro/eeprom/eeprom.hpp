@@ -11,7 +11,8 @@
 class EEPROM {
 private:
     const uint16_t device_id = 0x50;
-    const uint16_t page_size = 64;
+    const uint16_t page_size;
+    const uint16_t mem_address_size;
     I2C_HandleTypeDef* i2c;
 
     using eeprom_operation = std::function<HAL_StatusTypeDef(
@@ -20,34 +21,39 @@ private:
     )>;
 
     HAL_StatusTypeDef memory_op(eeprom_operation operation, uint8_t* bytes, size_t size, uint16_t address) {
+        wait_until_available();
+
         uint16_t bytes_processed = 0;
-
-        HAL_StatusTypeDef result = HAL_OK;
         while (bytes_processed < size) {
-            uint16_t chunk_size = std::min(static_cast<uint16_t>(size - bytes_processed), page_size);
+            uint16_t page_offset = (address + bytes_processed) % page_size;
+            uint16_t bytes_left_in_page = page_size - page_offset;
+            uint16_t chunk_size = std::min(static_cast<uint16_t>(size - bytes_processed), bytes_left_in_page);
 
-            result = static_cast<HAL_StatusTypeDef>(result & operation(
+            HAL_StatusTypeDef result = operation(
                 i2c,
                 device_id << 1,
                 address + bytes_processed,
-                I2C_MEMADD_SIZE_16BIT,
+                mem_address_size,
                 bytes + bytes_processed,
                 chunk_size,
                 100
-            ));
+            );
+            if (result != HAL_OK) {
+                return result;
+            }
             bytes_processed += chunk_size;
-            delay();
+            wait_until_available();
         }
-        return result;
+
+        return HAL_OK;
     }
 
 public:
-    explicit EEPROM(I2C_HandleTypeDef* i2c): i2c(i2c) {};
-
-    void __attribute__((optimize("O0"))) delay() {
-        // TODO: 5 is empirical value, probably needs fix
-        HAL_Delay(5);
-    }
+    explicit EEPROM(
+        I2C_HandleTypeDef* i2c,
+        uint64_t page_size = 64,
+        uint16_t mem_address_size = I2C_MEMADD_SIZE_16BIT
+    ): i2c(i2c), page_size(page_size), mem_address_size(mem_address_size) {};
 
     bool is_connected(void) {
         return HAL_I2C_IsDeviceReady(
@@ -56,6 +62,12 @@ public:
             2,
             100
         ) == HAL_OK;
+    }
+
+    void wait_until_available() {
+        while (!is_connected()) {
+            HAL_Delay(2);
+        }
     }
 
     template <typename T>

@@ -13,7 +13,7 @@ constexpr size_t CALIBRATION_BUFF_SIZE = 1024;
 using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
 using calibration_array_t = const __non_const_calib_array_t;
 struct CalibrationData {
-    static constexpr uint32_t TYPE_ID = 0x98ABCDEF;
+    static constexpr uint32_t TYPE_ID = 0x88ABCDEF;
     uint32_t type_id;
     bool was_calibrated = false;
     bool is_encoder_inverted;
@@ -35,20 +35,28 @@ struct CalibrationData {
     }
 };
 
+struct KalmanConfig {
+    float expected_a;
+    float g1;
+    float g2;
+    float g3;
+};
 
 /**
  * Field oriented control.
  */
 class FOC: public BLDCController  {
-private:
+protected:
     GenericEncoder& encoder;
     PIDRegulator q_reg;
     PIDRegulator d_reg;
     PIDRegulator control_reg;
+    const KalmanConfig kalman_config;
     float T;
     float raw_elec_angle = 0;
     float elec_angle = 0;
     calibration_array_t* lookup_table = nullptr;
+    bool is_limited = false;
 
     void apply_kalman();
     void update_angle();
@@ -57,7 +65,7 @@ private:
     float reset_to_zero(float start_angle, float d_delta);
     bool check_if_inverted(float start_angle, float d_delta);
 public:
-    void calibrate(CalibrationData& calibration_data);
+    virtual void calibrate(CalibrationData& calibration_data);
     void apply_calibration(CalibrationData& calibration_data) {
         // Replace config parameters with the ones loaded from EEPROM
         // Very ugly hack, but it will work for now
@@ -70,6 +78,7 @@ public:
 
     FOC(
         float T,
+        KalmanConfig&& kalman_config,
         PIDConfig&& control_config,
         PIDConfig&& q_config,
         PIDConfig&& d_config,
@@ -89,7 +98,8 @@ public:
         T(T),
         control_reg(std::move(control_config)),
         q_reg(std::move(q_config)),
-        d_reg(std::move(d_config))
+        d_reg(std::move(d_config)),
+        kalman_config(std::move(kalman_config))
         {}
 
     float get_electric_angle() {
@@ -104,6 +114,9 @@ public:
     }
     void update_control_config(PIDConfig&& new_config) {
         control_reg.update_config(std::move(new_config));
+    }
+    const GenericEncoder& get_encoder() const {
+        return encoder;
     }
 
     HAL_StatusTypeDef init() override {

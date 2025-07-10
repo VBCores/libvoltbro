@@ -72,6 +72,10 @@ inline bool is_close(float x, float y) {
     return fabsf(x - y) < EPS;
 }
 
+inline bool is_close(float x, float y, float tolerance) {
+    return fabsf(x - y) < tolerance;
+}
+
 template <class T>
 class ReservedObject {
 private:
