@@ -19,14 +19,14 @@ struct CommonDriverConfig {
 };
 
 struct DriveLimits {
-    float current_limit = -1;  // Real current limit for operation
-    float user_current_limit = -1;  // Limit set by user. Can be superseded by motor parameters - stall current, etc.
+    float current_limit = NAN;  // Real current limit for operation
+    float user_current_limit = NAN;  // Limit set by user. Can be superseded by motor parameters - stall current, etc.
 
-    float user_torque_limit = -1;
-    float user_voltage_limit = -1;
-    float user_speed_limit = -1;
-    float user_position_lower_limit = -1;
-    float user_position_upper_limit = -1;
+    float user_torque_limit = NAN;
+    float user_voltage_limit = NAN;
+    float user_speed_limit = NAN;
+    float user_position_lower_limit = NAN;
+    float user_position_upper_limit = NAN;
 };
 
 
@@ -49,10 +49,11 @@ public:
     };
     virtual bool check_limits(const DriveLimits& limits) {
         if (
+            limits.user_position_lower_limit < 0 || limits.user_position_upper_limit < 0 ||
             limits.user_position_lower_limit > pi2 || limits.user_position_upper_limit > pi2 ||
             (
-                limits.user_position_lower_limit > 0 && limits.user_position_upper_limit > 0 &&
-                drive_limits.user_position_upper_limit < limits.user_position_lower_limit
+                !isnan(limits.user_position_lower_limit) && !isnan(limits.user_position_upper_limit) &&
+                limits.user_position_upper_limit < limits.user_position_lower_limit
             )
         ) {
             return false;
@@ -60,7 +61,7 @@ public:
         return true;
     }
     bool set_limits(const DriveLimits& limits) {
-        if (check_limits(limits)) {
+        if (!check_limits(limits)) {
             return false;
         }
         drive_limits = limits;

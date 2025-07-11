@@ -18,7 +18,7 @@ void FOC::update_angle() {
 
     encoder_data raw_value = encoder.get_value();
     int offset_value = (int)raw_value + encoder.electric_offset;  // + lookup_table[raw_value >> 5]
-    //offset_value -= (float)encoder.CPR / (2.0f * drive_info.common.ppairs);
+    offset_value -= (float)encoder.CPR / (2.0f * drive_info.common.ppairs);
     if(offset_value > (encoder.CPR - 1)) {
         offset_value -= encoder.CPR;
     }
@@ -101,12 +101,14 @@ void FOC::apply_kalman() {
 static volatile float I_D = 0;
 static volatile float I_Q = 0;
 float V_d, V_q;
-volatile float elec_angle_glob = 0;
-volatile float mech_angle_glob = 0;
+static volatile float elec_angle_glob = 0;
+static volatile float mech_angle_glob = 0;
+static volatile int is_limited_glob;
 static volatile float i_q_error, i_d_error;
 static float d_response, q_response, i_q_set;
 static volatile float shart_torque_glob = 0;
 static volatile float shart_velocity_glob = 0;
+static volatile uint8_t set_point_type_glob = 0;
 #endif
 
 void FOC::update_sensors() {
@@ -161,7 +163,50 @@ void FOC::update() {
     shart_velocity_glob = shaft_velocity;
     #endif
 
-    if (point_type == SetPointType::VOLTAGE) {
+    SetPointType local_point_type = point_type;
+    float local_target = target;
+    float user_angle = get_angle();
+    if (!isnan(drive_limits.user_torque_limit) && (abs(shaft_torque) - drive_limits.user_torque_limit) > 0.05f
+    ) {
+        if (point_type != SetPointType::TORQUE) {
+            local_point_type = SetPointType::TORQUE;
+            local_target = copysign(drive_limits.user_torque_limit, shaft_torque);
+        }
+        // else: should have passed the torque limit check before
+    }
+    else if (!isnan(drive_limits.user_speed_limit) && (abs(shaft_velocity) - drive_limits.user_speed_limit) > 0.05f
+    ) {
+        if (point_type != SetPointType::VELOCITY) {
+            local_point_type = SetPointType::VELOCITY;
+            local_target = copysign(drive_limits.user_speed_limit, shaft_velocity);
+        }
+        // else: should have passed the speed limit check before
+    }
+    else if (!isnan(drive_limits.user_position_lower_limit) && user_angle < drive_limits.user_position_lower_limit
+    ) {
+        if (point_type != SetPointType::POSITION) {
+            local_point_type = SetPointType::POSITION;
+            local_target = drive_limits.user_position_lower_limit;
+        }
+        // else: should have passed the position limit check before
+    }
+    else if (!isnan(drive_limits.user_position_upper_limit) && user_angle > drive_limits.user_position_upper_limit
+    ) {
+        if (point_type != SetPointType::POSITION) {
+            local_point_type = SetPointType::POSITION;
+            local_target = drive_limits.user_position_upper_limit;
+        }
+        // else: should have passed the position limit check before
+    }
+    if (local_point_type != point_type) {
+        is_limited = true;
+    }
+    #ifdef IS_GLOBAL_CONTROL_VARIABLES
+    is_limited_glob = static_cast<int>(is_limited);
+    set_point_type_glob = to_underlying(local_point_type);
+    #endif
+
+    if (local_point_type == SetPointType::VOLTAGE) {
         V_d = 0;
         V_q = -target;
     }
@@ -169,42 +214,6 @@ void FOC::update() {
         #ifndef IS_GLOBAL_CONTROL_VARIABLES
         float i_d_error, i_q_error, d_response, q_response, i_q_set;
         #endif
-
-        SetPointType local_point_type = point_type;
-        float local_target = target;
-
-        float user_angle = get_angle();
-        if ((abs(shaft_torque) - drive_limits.user_torque_limit) > 0.05f) {
-            if (point_type != SetPointType::TORQUE) {
-                local_point_type = SetPointType::TORQUE;
-                local_target = copysign(drive_limits.user_torque_limit, shaft_torque);
-            }
-            // else: should have passed the torque limit check before
-        }
-        else if ((abs(shaft_velocity) - drive_limits.user_speed_limit) > 0.05f) {
-            if (point_type != SetPointType::VELOCITY) {
-                local_point_type = SetPointType::VELOCITY;
-                local_target = copysign(drive_limits.user_speed_limit, shaft_velocity);
-            }
-            // else: should have passed the speed limit check before
-        }
-        else if (user_angle < drive_limits.user_position_lower_limit) {
-            if (point_type != SetPointType::POSITION) {
-                local_point_type = SetPointType::POSITION;
-                local_target = drive_limits.user_position_lower_limit;
-            }
-            // else: should have passed the position limit check before
-        }
-        else if (user_angle > drive_limits.user_position_upper_limit) {
-            if (point_type != SetPointType::POSITION) {
-                local_point_type = SetPointType::POSITION;
-                local_target = drive_limits.user_position_upper_limit;
-            }
-            // else: should have passed the position limit check before
-        }
-        if (local_point_type != point_type) {
-            is_limited = true;
-        }
 
         i_d_error = -I_D;
         d_response = d_reg.regulation(i_d_error, T, false);

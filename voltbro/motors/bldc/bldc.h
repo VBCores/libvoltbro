@@ -16,7 +16,7 @@
 #include "voltbro/devices/inverter.hpp"
 #include "../motor_commons.hpp"
 
-enum class SetPointType { VELOCITY, TORQUE, POSITION, VOLTAGE };
+enum class SetPointType: uint8_t  { VELOCITY = 0, TORQUE = 1, POSITION = 2, VOLTAGE = 3};
 
 enum class DrivePhase: uint8_t { PHASE_A = 0, PHASE_B = 1, PHASE_C = 2 };
 
@@ -67,7 +67,9 @@ public:
         full_pwm(htim->Instance->ARR),
         htim(htim)
     {
-        set_limits(limits);
+        if (!set_limits(limits)) {
+            exit(-1);
+        }
     }
 
     virtual bool check_limits(const DriveLimits& limits) override {
