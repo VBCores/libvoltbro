@@ -294,12 +294,17 @@ public:
 
 };
 
-#define CHECK_AND_PRINT_PARAM(field_name, param_name) \
+#define CHECK_AND_PRINT_PARAM_INT(field_name, param_name) \
+    else if (param == param_name) { \
+        responses.append("%s: %d\n\r", #field_name, field_name); \
+    }
+
+#define CHECK_AND_PRINT_PARAM_FLOAT(field_name, param_name) \
     else if (param == param_name) { \
         responses.append("%s: %f\n\r", #field_name, field_name); \
     }
 
-#define CHECK_AND_SET_PARAM(field_name, param_name) \
+#define CHECK_AND_SET_PARAM_FLOAT(field_name, param_name) \
     else if (param == param_name) { \
         field_name = new_float_value; \
         responses.append("OK: %s :%f\n\r", #field_name, field_name); \

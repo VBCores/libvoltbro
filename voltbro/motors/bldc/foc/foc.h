@@ -13,7 +13,7 @@ constexpr size_t CALIBRATION_BUFF_SIZE = 1024;
 using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
 using calibration_array_t = const __non_const_calib_array_t;
 struct CalibrationData {
-    static constexpr uint32_t TYPE_ID = 0x33FEDCBA;
+    static constexpr uint32_t TYPE_ID = 0x66ABCDEF;
     uint32_t type_id;
     bool was_calibrated = false;
     bool is_encoder_inverted;
@@ -35,6 +35,14 @@ struct CalibrationData {
     }
 };
 
+struct FOCTarget {
+    float torque = 0.0f;
+    float angle = 0.0f;
+    float velocity = 0.0f;
+    float angle_kp = 0.0f;
+    float velocity_kp = 0.0f;
+};
+
 struct KalmanConfig {
     float expected_a;
     float g1;
@@ -47,6 +55,7 @@ struct KalmanConfig {
  */
 class FOC: public BLDCController  {
 protected:
+    FOCTarget foc_target;
     GenericEncoder& encoder;
     PIDRegulator q_reg;
     PIDRegulator d_reg;
@@ -106,6 +115,10 @@ public:
         return elec_angle;
     }
 
+    void set_foc_point(FOCTarget&& target) {
+        point_type = SetPointType::UNIVERSAL;
+        foc_target = std::move(target);
+    }
     void update_q_config(PIDConfig&& new_config) {
         q_reg.update_config(std::move(new_config));
     }

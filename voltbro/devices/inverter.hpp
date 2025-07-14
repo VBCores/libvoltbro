@@ -7,7 +7,6 @@
 #include <cstdint>
 
 
-#define IS_GLOBAL_CONTROL_VARIABLES
 #ifdef IS_GLOBAL_CONTROL_VARIABLES
 static volatile float I_A_glob, I_B_glob, I_C_glob, busV_glob;
 #endif
