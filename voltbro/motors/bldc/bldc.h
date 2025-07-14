@@ -16,7 +16,13 @@
 #include "voltbro/devices/inverter.hpp"
 #include "../motor_commons.hpp"
 
-enum class SetPointType: uint8_t  { VELOCITY = 0, TORQUE = 1, POSITION = 2, VOLTAGE = 3};
+enum class SetPointType: uint8_t  {
+    VELOCITY = 0,
+    TORQUE = 1,
+    POSITION = 2,
+    VOLTAGE = 3,
+    UNIVERSAL = 4
+};
 
 enum class DrivePhase: uint8_t { PHASE_A = 0, PHASE_B = 1, PHASE_C = 2 };
 

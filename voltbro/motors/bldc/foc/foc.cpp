@@ -7,8 +7,6 @@
 #include "stm32g4xx_ll_cordic.h"
 #include "voltbro/math/transform.hpp"
 
-#define MONITOR
-
 #if defined(DEBUG) || defined(MONITOR)
 volatile float raw_elec_angle_glob = 0;
 volatile float shaft_angle_glob = 0;
@@ -109,6 +107,8 @@ static float d_response, q_response, i_q_set;
 static volatile float shart_torque_glob = 0;
 static volatile float shart_velocity_glob = 0;
 static volatile uint8_t set_point_type_glob = 0;
+static volatile float control_error_glob = 0;
+static volatile float controller_response_glob = 0;
 #endif
 
 void FOC::update_sensors() {
@@ -164,7 +164,7 @@ void FOC::update() {
     #endif
 
     SetPointType local_point_type = point_type;
-    float local_target = target;
+    float local_target = 0;
     float user_angle = get_angle();
     if (!isnan(drive_limits.user_torque_limit) && (abs(shaft_torque) - drive_limits.user_torque_limit) > 0.05f
     ) {
@@ -220,7 +220,14 @@ void FOC::update() {
         V_d = std::clamp(d_response, -inverter.get_busV(), inverter.get_busV());
 
         i_q_set = 0.0f;
-        if (local_point_type == SetPointType::TORQUE) {
+        if (local_point_type == SetPointType::UNIVERSAL) {
+            i_q_set = -1.0f / drive_info.torque_const * (
+                foc_target.angle_kp * (foc_target.angle - shaft_angle) +
+                foc_target.velocity_kp * (foc_target.velocity - shaft_velocity) +
+                (foc_target.torque / (float)drive_info.common.gear_ratio)
+            );
+        }
+        else if (local_point_type == SetPointType::TORQUE) {
             i_q_set = -local_target / drive_info.torque_const / (float)drive_info.common.gear_ratio;
         }
         else {
@@ -231,7 +238,12 @@ void FOC::update() {
             else if (local_point_type == SetPointType::VELOCITY) {
                 control_error = local_target - shaft_velocity;
             }
-            i_q_set = control_reg.regulation(control_error, T, false);
+            float controller_response = control_reg.regulation(control_error, T, false);
+            #ifdef IS_GLOBAL_CONTROL_VARIABLES
+            control_error_glob = control_error;
+            controller_response_glob = controller_response;
+            #endif
+            i_q_set = -controller_response;
         }
 
         float abs_max_current_from_torque = (drive_info.max_torque / drive_info.torque_const / (float)drive_info.common.gear_ratio);
@@ -252,8 +264,8 @@ void FOC::update() {
         }
 
         i_q_error = i_q_set - I_Q;
-        q_response = q_reg.regulation(i_q_error, T, false);
-        V_q = std::clamp(q_response, -inverter.get_busV(), inverter.get_busV());
+        q_response = q_reg.regulation(i_q_error, T, inverter.get_busV());
+        V_q = q_response;
     }
 
     limit_norm(&V_d, &V_q, inverter.get_busV());
