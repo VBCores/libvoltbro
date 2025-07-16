@@ -23,7 +23,7 @@ enum class AS5048AParams: uint16_t {
     ERROR_BIT = 0x4000,
     CLEAR_ERROR_AND_PARITY = 0xC000,
     // Delays
-    CS_DELAY_CYCLES = (uint16_t)(CYCLES_100NS_160Mhz * 3.5f)
+    CS_DELAY_CYCLES = static_cast<uint16_t>(CYCLES_100NS_160Mhz * 3.5f)
 };
 
 class AS5048A: public ASxxxx<AS5048AParams> {
