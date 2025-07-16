@@ -1,18 +1,9 @@
 #pragma once
 #if defined(STM32G4) || defined(STM32_G)
 #include "stm32g4xx_hal.h"
-#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_CORDIC_MODULE_ENABLED)
+#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_CORDIC_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED)
 
 #include "../foc/foc.h"
-
-
-struct HardLimits {
-    float max_speed = NAN;
-    float max_torque = NAN;
-    float angle_offset = NAN;
-    float min_angle = NAN;
-    float max_angle = NAN;
-};
 
 class VBInverter: public BaseInverter {
 private:
@@ -123,8 +114,6 @@ public:
         )
         {}
 
-        //void update() override {};
-
         HAL_StatusTypeDef init() override {
             HAL_StatusTypeDef result = FOC::init();
             if (result != HAL_OK) {
@@ -158,7 +147,7 @@ public:
 
         void calibrate(CalibrationData& calibration_data) override {
             uint16_t ppair_roll_counter = 0;
-            std::array<encoder_data, 28> offset_samples = {};  // TODO: make size dynamic
+            std::array<encoder_data, 28> offset_samples = {};  // ppairs * 2
             float current_angle = 0.0f;
             const float d_delta = 0.25f * (float)drive_info.common.ppairs * pi2 / (float)CALIBRATION_BUFF_SIZE;
 

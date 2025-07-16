@@ -240,7 +240,7 @@ public:
         std::function<void(void)> turn_off
     ): huart(huart), eeprom(eeprom), turn_on(turn_on), turn_off(turn_off) {}
 
-    const ConfigT& get_config() const {
+    ConfigT& get_config() {
         return config_data;
     }
 
