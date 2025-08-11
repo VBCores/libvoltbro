@@ -4,12 +4,13 @@
 #if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_CORDIC_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED)
 
 #include "../foc/foc.h"
+#include <voltbro/math/dsp/low_pass_filter.hpp>
 
 class VBInverter: public BaseInverter {
 private:
-    const volatile uint32_t ADC_1_buffer[3] = {};
+    const volatile uint32_t __attribute__((aligned(4))) ADC_1_buffer[3] = {};
     ADC_HandleTypeDef* hadc_1;
-    const volatile uint32_t ADC_2_buffer[2] = {};
+    const volatile uint32_t __attribute__((aligned(4))) ADC_2_buffer[2] = {};
     ADC_HandleTypeDef* hadc_2;
 
     float stator_temperature = 0;
@@ -45,8 +46,10 @@ public:
         HAL_ADC_Start_DMA(hadc_1, const_cast<uint32_t *>(ADC_1_buffer), 3);
         HAL_ADC_Start_DMA(hadc_2, const_cast<uint32_t *>(ADC_2_buffer), 2);
 
+        HAL_Delay(100);
+
         // Record offset;
-        int cycles = 64;
+        int cycles = 100;
         for (int i = 0; i < cycles; i++) {
             I_A_offset += read_raw_A();
             I_B_offset += read_raw_B();
@@ -85,8 +88,86 @@ public:
     }
 };
 
+class InductiveSensor {
+protected:
+    static const uint32_t read_pos_cmd = 209;
+    GpioPin spi_cs;
+    SPI_HandleTypeDef* hspi;
+    float current_angle = NAN;
+    float current_speed = 0;
+    int revolutions = 0;
+    LowPassFilter speed_filter = LowPassFilter(0.005f);
+
+public:
+    InductiveSensor(SPI_HandleTypeDef* hspi, GpioPin spi_cs):
+        spi_cs(spi_cs),
+        hspi(hspi)
+        {}
+
+    int get_revolutions() {
+        return revolutions;
+    }
+
+    float get_angle() {
+        return current_angle;
+    }
+
+    float get_speed() {
+        return current_speed;
+    }
+
+    void update(float dt) {
+        static bool induct_comm_phase = 0;
+        static uint16_t rx_upper = 0;
+
+        spi_cs.reset(); // CS low
+
+        if (!induct_comm_phase) {
+            // Upper 16 bits
+            uint16_t tx_upper = (uint16_t)(read_pos_cmd >> 16);
+            HAL_SPI_TransmitReceive(hspi, (uint8_t*)&tx_upper, (uint8_t*)&rx_upper, 1, 1000);
+
+            float new_angle = pi2 * static_cast<float>(rx_upper) / 65535.0f;
+            float diff = new_angle - current_angle;
+            if (abs(diff) > PI) {
+                if (diff < 0) {
+                    revolutions += 1;
+                    diff += pi2;
+                }
+                else {
+                    revolutions -= 1;
+                    diff -= pi2;
+                }
+            }
+            if (!is_close(dt, 0, 1e-8)) {
+                current_speed = speed_filter(current_speed, diff / dt);
+            }
+            current_angle = new_angle;
+
+            induct_comm_phase = true;
+        } else {
+            // Lower 16 bits
+            uint16_t tx_lower = (uint16_t)(read_pos_cmd);
+            uint16_t rx_lower = 0;
+            HAL_SPI_TransmitReceive(hspi, (uint8_t*)&tx_lower, (uint8_t*)&rx_lower, 1, 1000);
+
+            spi_cs.set(); // CS high
+            induct_comm_phase = false;
+        }
+    }
+};
 
 class VBDrive: public FOC {
+protected:
+    InductiveSensor inductive_sensor;
+    void update_angle() override {
+        update_electric_angle();
+        shaft_angle = inductive_sensor.get_angle();
+    }
+    void update_sensors() override {
+        FOC::update_sensors();
+        shaft_velocity = inductive_sensor.get_speed();
+    }
 public:
     VBDrive(
         float T,
@@ -98,7 +179,9 @@ public:
         const DriveInfo& drive_info,
         TIM_HandleTypeDef* htim,
         GenericEncoder& encoder,
-        VBInverter& inverter
+        VBInverter& inverter,
+        SPI_HandleTypeDef* hspi_inductive,
+        GpioPin spi_inductive_pin
     ):
         FOC(
             T,
@@ -111,8 +194,14 @@ public:
             htim,
             encoder,
             inverter
-        )
+        ),
+        inductive_sensor(hspi_inductive, spi_inductive_pin)
         {}
+
+        void update_with_dt(float dt) {
+            inductive_sensor.update(dt);
+            update();
+        }
 
         HAL_StatusTypeDef init() override {
             HAL_StatusTypeDef result = FOC::init();

@@ -73,9 +73,10 @@ public:
         full_pwm(htim->Instance->ARR),
         htim(htim)
     {
-        if (!set_limits(limits)) {
+        // TODO: fix limits setup from config
+        /*if (!set_limits(limits)) {
             exit(-1);
-        }
+        }*/
     }
 
     virtual bool check_limits(const DriveLimits& limits) override {

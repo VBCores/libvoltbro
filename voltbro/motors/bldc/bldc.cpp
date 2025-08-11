@@ -14,6 +14,9 @@ HAL_StatusTypeDef BLDCController::init() {
     if (result != HAL_OK) {
         return result;
     }
+
+    inverter.start();
+
     result = HAL_TIM_PWM_Start(htim, TIM_CHANNEL_2); // B-phase
     if (result != HAL_OK) {
         return result;
@@ -23,7 +26,6 @@ HAL_StatusTypeDef BLDCController::init() {
         return result;
     }
 
-    inverter.start();
     return HAL_OK;
 }
 

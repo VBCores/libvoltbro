@@ -194,7 +194,6 @@ protected:
         else if (command == "STOP") {
             disable_config_mode();
             responses.append("NOTE: config changes not applied! To apply, run APPLY or reset controller\n\r");
-            return;
         }
         else {
             // Если не в режиме конфигурации, игнорируем команды (кроме START)
