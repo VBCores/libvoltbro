@@ -11,7 +11,8 @@
 volatile float raw_elec_angle_glob = 0;
 volatile float shaft_angle_glob = 0;
 #endif
-void FOC::update_angle() {
+
+void FOC::update_electric_angle() {
     encoder.update_value();
 
     encoder_data raw_value = encoder.get_value();
@@ -28,7 +29,10 @@ void FOC::update_angle() {
     #if defined(DEBUG) || defined(MONITOR)
         raw_elec_angle_glob = raw_elec_angle;
     #endif
+}
 
+void FOC::update_angle() {
+    update_electric_angle();
     const float rads_per_rev = pi2 / drive_info.common.gear_ratio;
     int revolutions = encoder.get_revolutions() % drive_info.common.gear_ratio;
     float base_angle = 0;

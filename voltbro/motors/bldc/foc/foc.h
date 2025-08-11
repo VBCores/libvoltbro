@@ -68,7 +68,8 @@ protected:
     bool is_limited = false;
 
     void apply_kalman();
-    void update_angle();
+    virtual void update_angle();
+    void update_electric_angle();
 
     void set_windings_calibration(float current_angle);
     float reset_to_zero(float start_angle, float d_delta);
