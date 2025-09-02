@@ -53,6 +53,10 @@ public:
         return revolutions;
     }
 
+    inline bool has_error() const {
+        return last_error;
+    }
+
 };
 
 #endif

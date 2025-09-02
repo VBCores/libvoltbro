@@ -71,6 +71,8 @@ public:
         }
         return true;
     }
+
+    virtual ~AbstractMotor() = default;
 };
 
 inline float calculate_angle_simple(

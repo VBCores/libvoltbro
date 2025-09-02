@@ -44,7 +44,7 @@ public:
     Inverter(ADC_HandleTypeDef* hadc): hadc(hadc) {}
 
     void start() override {
-        if (!has_started()) {
+        if (has_started()) {
             return;
         }
 
@@ -55,10 +55,10 @@ public:
         // Record offset;
         int cycles = 64;
         for (int i = 0; i < cycles; i++) {
+            HAL_Delay(2);
             I_A_offset += (3.3f * (float)ADC_buffer[1] / (16.0f * 4096.0f));
             I_B_offset += (3.3f * (float)ADC_buffer[2] / (16.0f * 4096.0f));
             I_C_offset += (3.3f * (float)ADC_buffer[3] / (16.0f * 4096.0f));
-            HAL_Delay(1);
         }
         I_A_offset /= (float)cycles;
         I_B_offset /= (float)cycles;

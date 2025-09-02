@@ -34,7 +34,7 @@ public:
         bool is_inverted = false,
         encoder_data electric_offset = 0
     ): ASxxxx<AS5048AParams>(
-        std::forward<GpioPin>(spi_ss), spi, 16383, is_inverted, electric_offset
+        std::forward<GpioPin>(spi_ss), spi, 16384, is_inverted, electric_offset
     ) {};
 };
 

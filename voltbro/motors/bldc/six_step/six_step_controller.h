@@ -15,14 +15,14 @@ private:
     HallSensor& hall_sensor;
 public:
     SixStepController(
-        DriveLimits& limits,
-        DriveInfo& drive_info,
+        const DriveLimits& drive_limits,
+        const DriveInfo& drive_info,
         TIM_HandleTypeDef* htim,
         BaseInverter& inverter,
         HallSensor& hall_sensor
     ):
         BLDCController(
-            limits,
+            drive_limits,
             drive_info,
             htim,
             inverter
@@ -56,6 +56,9 @@ public:
     }
 
     void update() override;
+    void set_coil_voltage(float target_voltage);
+
+    virtual ~SixStepController() = default;
 };
 
 void step_to_phases(EncoderStep step, DrivePhase& first, DrivePhase& second);

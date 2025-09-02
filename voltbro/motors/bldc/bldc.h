@@ -155,6 +155,8 @@ public:
         __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, DQs[1]);
         __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, DQs[2]);
     }
+
+    virtual ~BLDCController() = default;
 };
 
 force_inline float get_current(Inverter& inverter, DrivePhase current_relative) {

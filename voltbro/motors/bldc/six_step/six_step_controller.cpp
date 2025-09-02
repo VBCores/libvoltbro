@@ -1,28 +1,26 @@
 #include "six_step_controller.h"
 #if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED)
 
-#define USE_CONTROL
 
 void SixStepController::update() {
     if (!_is_on) {
         return;
     }
-    inverter.update();
+    // TODO: check and report if point_type is not voltage?
+    set_coil_voltage(target);
+}
 
+void SixStepController::set_coil_voltage(float target_voltage) {
+    inverter.update();
     DrivePhase first, second;
     step_to_phases(hall_sensor.get_step(), first, second);
 
-    // TODO: check and report if point_type is not voltage?
-    int16_t new_pwm = full_pwm / inverter.get_busV() * target;  // TODO: busV or manually set supply_voltage?
+    int16_t new_pwm = full_pwm / inverter.get_busV() * target_voltage;
 
     const uint32_t MAX_PWM = full_pwm * 0.95f;
     if ( ((uint16_t)abs(new_pwm)) > MAX_PWM ) {
         new_pwm = copysign(MAX_PWM, new_pwm);
     }
-
-#ifndef USE_CONTROL
-    local_pwm = 300;
-#endif
 
     if (hall_sensor.is_inverted) {
         new_pwm = -new_pwm;

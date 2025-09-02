@@ -109,7 +109,7 @@ public:
     }
 
     void update_value() override {
-        encoder_data new_value = get_angle();
+        encoder_data new_value = get_angle(true);
 
         if (value == (encoder_data)-1) {
             value = new_value;
