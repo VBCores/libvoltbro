@@ -53,6 +53,12 @@ protected:
 public:
     explicit PIDRegulator(PIDConfig&& config) : config(std::move(config)) {}
 
+    void reset() {
+        signal = 0.0f;
+        integral_error = 0.0f;
+        prev_error = 0.0f;
+    }
+
     float regulation(float error, float dt, bool zero_in_threshold=false) {
         if (zero_in_threshold && config.tolerance != 0 && (fabs(error) <= config.tolerance)) {
             signal = 0;

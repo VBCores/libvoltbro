@@ -36,14 +36,12 @@ HAL_StatusTypeDef BLDCController::stop() {
 }
 
 HAL_StatusTypeDef BLDCController::start() {
-    /*
     for (int i = 0; i < 3; i++) {
         drive_info.en_pin.reset();
         HAL_Delay(10);
         drive_info.en_pin.set();
         HAL_Delay(10);
     }
-    */
     drive_info.en_pin.set();
     quit_stall();
     _is_on = true;

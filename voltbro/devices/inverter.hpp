@@ -52,13 +52,14 @@ public:
         HAL_ADCEx_Calibration_Start(hadc, ADC_SINGLE_ENDED);
         // const_cast to allow HAL to work
         HAL_ADC_Start_DMA(hadc, const_cast<uint32_t *>(ADC_buffer), 4);
+        HAL_Delay(5);
         // Record offset;
         int cycles = 64;
         for (int i = 0; i < cycles; i++) {
-            HAL_Delay(2);
             I_A_offset += (3.3f * (float)ADC_buffer[1] / (16.0f * 4096.0f));
             I_B_offset += (3.3f * (float)ADC_buffer[2] / (16.0f * 4096.0f));
             I_C_offset += (3.3f * (float)ADC_buffer[3] / (16.0f * 4096.0f));
+            HAL_Delay(1);
         }
         I_A_offset /= (float)cycles;
         I_B_offset /= (float)cycles;
