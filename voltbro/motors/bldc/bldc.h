@@ -74,9 +74,9 @@ public:
         htim(htim)
     {
         // TODO: fix limits setup from config
-        /*if (!set_limits(limits)) {
+        if (!set_limits(limits)) {
             exit(-1);
-        }*/
+        }
     }
 
     virtual bool check_limits(const DriveLimits& limits) override {
@@ -130,16 +130,17 @@ public:
     bool is_on() const {
         return _is_on;
     }
-    float get_angle() const {
+
+    virtual float get_angle() const {
         return shaft_angle + drive_info.common.user_angle_offset;
     }
-    float get_velocity() const {
+    virtual float get_velocity() const {
         return shaft_velocity;
     }
-    float get_voltage() const {
+    virtual float get_voltage() const {
         return 0; // TODO
     }
-    float get_torque() const {
+    virtual float get_torque() const {
         return 0; // TODO
     }
 
