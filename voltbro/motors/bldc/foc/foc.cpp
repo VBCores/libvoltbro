@@ -43,9 +43,6 @@ void FOC::update_angle() {
         base_angle = revolutions * rads_per_rev;
     }
     shaft_angle = base_angle + (raw_elec_angle / drive_info.common.gear_ratio);
-    #if defined(DEBUG) || defined(MONITOR)
-        shaft_angle_glob = shaft_angle;
-    #endif
 }
 
 void FOC::apply_kalman() {
@@ -113,6 +110,11 @@ static volatile float shart_velocity_glob = 0;
 static volatile uint8_t set_point_type_glob = 0;
 static volatile float control_error_glob = 0;
 static volatile float controller_response_glob = 0;
+static volatile float value_foc_p = 0;
+static volatile float value_foc_v = 0;
+static volatile float value_foc_p_kp = 0;
+static volatile float value_foc_v_kp = 0;
+static volatile float value_foc_t = 0;
 #endif
 
 void FOC::update_sensors() {
@@ -221,6 +223,13 @@ void FOC::update() {
 
         i_q_set = 0.0f;
         if (local_point_type == SetPointType::UNIVERSAL) {
+            #ifdef MONITOR
+            value_foc_p = foc_target.angle;
+            value_foc_v = foc_target.velocity;
+            value_foc_p_kp = foc_target.angle_kp;
+            value_foc_v_kp = foc_target.velocity_kp;
+            value_foc_t = foc_target.torque;
+            #endif
             i_q_set = -1.0f / drive_info.torque_const * (
                 foc_target.angle_kp * (foc_target.angle - shaft_angle) +
                 foc_target.velocity_kp * (foc_target.velocity - shaft_velocity) +

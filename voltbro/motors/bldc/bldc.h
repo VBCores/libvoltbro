@@ -137,10 +137,10 @@ public:
         return shaft_velocity;
     }
     float get_voltage() const {
-        return 0; // TODO
+        return inverter.get_busV();
     }
-    float get_torque() const {
-        return 0; // TODO
+    virtual float get_torque() const {
+        return shaft_torque;
     }
 
     void detect_stall(double passed_time_abs);

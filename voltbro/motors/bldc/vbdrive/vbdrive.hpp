@@ -166,7 +166,7 @@ protected:
     }
     void update_sensors() override {
         FOC::update_sensors();
-        shaft_velocity = inductive_sensor.get_speed();
+        //shaft_velocity = inductive_sensor.get_speed();
     }
 public:
     VBDrive(
