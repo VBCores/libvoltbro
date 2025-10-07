@@ -40,7 +40,7 @@ bool FOC::check_if_inverted(float start_angle, float d_delta) {
     size_t step_counter = 0;
     size_t decrease_counter = 0;
     size_t increase_counter = 0;
-    while(step_counter < 200) {
+    while(step_counter < 400) {
         step_counter += 1;
         diff = old_angle - raw_elec_angle;
         if (diff > 0) {

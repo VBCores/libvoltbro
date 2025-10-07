@@ -18,15 +18,17 @@ struct CommonDriverConfig {
     const float user_angle_offset = 0.0f;
 };
 
-struct DriveLimits {
-    float current_limit = NAN;  // Real current limit for operation
-    float user_current_limit = NAN;  // Limit set by user. Can be superseded by motor parameters - stall current, etc.
+constexpr float FLOAT_INF = std::numeric_limits<float>::infinity();
 
-    float user_torque_limit = NAN;
-    float user_voltage_limit = NAN;
-    float user_speed_limit = NAN;
-    float user_position_lower_limit = NAN;
-    float user_position_upper_limit = NAN;
+struct DriveLimits {
+    float current_limit = NAN;  // Real current limit for operation, can be modified by stall detection, etc.
+
+    float user_current_limit = FLOAT_INF;
+    float user_torque_limit = FLOAT_INF;
+    float user_voltage_limit = FLOAT_INF;
+    float user_speed_limit = FLOAT_INF;
+    float user_position_lower_limit = -FLOAT_INF;
+    float user_position_upper_limit = FLOAT_INF;
 };
 
 
@@ -42,24 +44,20 @@ public:
     virtual void update() = 0;
 
     virtual HAL_StatusTypeDef apply_limits() {
-        if (drive_limits.current_limit <= 0) {
+        if (std::isnan(drive_limits.current_limit)) {
             drive_limits.current_limit = drive_limits.user_current_limit;
         }
         return HAL_OK;
     };
+
     virtual bool check_limits(const DriveLimits& limits) {
-        if (
-            limits.user_position_lower_limit < 0 || limits.user_position_upper_limit < 0 ||
-            limits.user_position_lower_limit > pi2 || limits.user_position_upper_limit > pi2 ||
-            (
-                !isnan(limits.user_position_lower_limit) && !isnan(limits.user_position_upper_limit) &&
-                limits.user_position_upper_limit < limits.user_position_lower_limit
-            )
-        ) {
+        if (!std::isnan(limits.user_position_lower_limit) && !std::isnan(limits.user_position_upper_limit) &&
+            limits.user_position_upper_limit < limits.user_position_lower_limit) {
             return false;
         }
         return true;
     }
+
     bool set_limits(const DriveLimits& limits) {
         if (!check_limits(limits)) {
             return false;

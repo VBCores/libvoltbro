@@ -3,11 +3,12 @@ import numpy as np
 T = 0.00005
 
 # TODO: move all of this to C++ code as a constexpr function
-expected_rps = 0.5
-gear_ratio = 36.0
-p0 = w = (np.pi*2 * 5) * (expected_rps * gear_ratio)
+max_acceleration = 500.0  # [rad/s^2]
+p0 = w = 4 * np.sqrt(max_acceleration)
+print(p0, w)
+#p0 = w = 250
 # angle (should be [40;50])
-theta_deg = 45
+theta_deg = 40
 ang = np.deg2rad(theta_deg)
 
 ro0 = np.exp(-p0 * T)

@@ -53,6 +53,14 @@ protected:
 public:
     explicit PIDRegulator(PIDConfig&& config) : config(std::move(config)) {}
 
+    float get_integral_error() const {
+        return integral_error;
+    }
+
+    void set_integral_error(float new_integral) {
+        integral_error = std::clamp(new_integral, -config.integral_error_lim, config.integral_error_lim);
+    }
+
     float regulation(float error, float dt, bool zero_in_threshold=false) {
         if (zero_in_threshold && config.tolerance != 0 && (fabs(error) <= config.tolerance)) {
             signal = 0;

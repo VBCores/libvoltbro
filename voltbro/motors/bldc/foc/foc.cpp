@@ -7,11 +7,6 @@
 #include "stm32g4xx_ll_cordic.h"
 #include "voltbro/math/transform.hpp"
 
-#if defined(DEBUG) || defined(MONITOR)
-volatile float raw_elec_angle_glob = 0;
-volatile float shaft_angle_glob = 0;
-#endif
-
 void FOC::update_electric_angle() {
     encoder.update_value();
 
@@ -26,9 +21,6 @@ void FOC::update_electric_angle() {
     }
 
     raw_elec_angle = offset_value * (pi2 / (float)encoder.CPR);
-    #if defined(DEBUG) || defined(MONITOR)
-        raw_elec_angle_glob = raw_elec_angle;
-    #endif
 }
 
 void FOC::update_angle() {
@@ -102,12 +94,10 @@ static volatile float I_Q = 0;
 float V_d, V_q;
 static volatile float elec_angle_glob = 0;
 static volatile float mech_angle_glob = 0;
-static volatile int is_limited_glob;
 static volatile float i_q_error, i_d_error;
 static float d_response, q_response, i_q_set;
 static volatile float shart_torque_glob = 0;
 static volatile float shart_velocity_glob = 0;
-static volatile uint8_t set_point_type_glob = 0;
 static volatile float control_error_glob = 0;
 static volatile float controller_response_glob = 0;
 static volatile float value_foc_p = 0;
@@ -165,50 +155,7 @@ void FOC::update() {
     shart_velocity_glob = shaft_velocity;
     #endif
 
-    SetPointType local_point_type = point_type;
-    float local_target = 0;
-    float user_angle = get_angle();
-    if (!isnan(drive_limits.user_torque_limit) && (abs(shaft_torque) - drive_limits.user_torque_limit) > 0.05f
-    ) {
-        if (point_type != SetPointType::TORQUE) {
-            local_point_type = SetPointType::TORQUE;
-            local_target = copysign(drive_limits.user_torque_limit, shaft_torque);
-        }
-        // else: should have passed the torque limit check before
-    }
-    else if (!isnan(drive_limits.user_speed_limit) && (abs(shaft_velocity) - drive_limits.user_speed_limit) > 0.05f
-    ) {
-        if (point_type != SetPointType::VELOCITY) {
-            local_point_type = SetPointType::VELOCITY;
-            local_target = copysign(drive_limits.user_speed_limit, shaft_velocity);
-        }
-        // else: should have passed the speed limit check before
-    }
-    else if (!isnan(drive_limits.user_position_lower_limit) && user_angle < drive_limits.user_position_lower_limit
-    ) {
-        if (point_type != SetPointType::POSITION) {
-            local_point_type = SetPointType::POSITION;
-            local_target = drive_limits.user_position_lower_limit;
-        }
-        // else: should have passed the position limit check before
-    }
-    else if (!isnan(drive_limits.user_position_upper_limit) && user_angle > drive_limits.user_position_upper_limit
-    ) {
-        if (point_type != SetPointType::POSITION) {
-            local_point_type = SetPointType::POSITION;
-            local_target = drive_limits.user_position_upper_limit;
-        }
-        // else: should have passed the position limit check before
-    }
-    if (local_point_type != point_type) {
-        is_limited = true;
-    }
-    #ifdef IS_GLOBAL_CONTROL_VARIABLES
-    is_limited_glob = static_cast<int>(is_limited);
-    set_point_type_glob = to_underlying(local_point_type);
-    #endif
-
-    if (local_point_type == SetPointType::VOLTAGE) {
+    if (point_type == SetPointType::VOLTAGE) {
         V_d = 0;
         V_q = -target;
     }
@@ -222,7 +169,7 @@ void FOC::update() {
         V_d = std::clamp(d_response, -inverter.get_busV(), inverter.get_busV());
 
         i_q_set = 0.0f;
-        if (local_point_type == SetPointType::UNIVERSAL) {
+        if (point_type == SetPointType::UNIVERSAL) {
             #ifdef MONITOR
             value_foc_p = foc_target.angle;
             value_foc_v = foc_target.velocity;
@@ -231,21 +178,21 @@ void FOC::update() {
             value_foc_t = foc_target.torque;
             #endif
             i_q_set = -1.0f / drive_info.torque_const * (
-                foc_target.angle_kp * (foc_target.angle - shaft_angle) +
+                foc_target.angle_kp * (foc_target.angle - get_angle()) +
                 foc_target.velocity_kp * (foc_target.velocity - shaft_velocity) +
                 (foc_target.torque / (float)drive_info.common.gear_ratio)
             );
         }
-        else if (local_point_type == SetPointType::TORQUE) {
-            i_q_set = -local_target / drive_info.torque_const / (float)drive_info.common.gear_ratio;
+        else if (point_type == SetPointType::TORQUE) {
+            i_q_set = -target / drive_info.torque_const / (float)drive_info.common.gear_ratio;
         }
         else {
             float control_error = 0;
-            if (local_point_type == SetPointType::POSITION) {
-                control_error = local_target - shaft_angle;
+            if (point_type == SetPointType::POSITION) {
+                control_error = target - shaft_angle;
             }
-            else if (local_point_type == SetPointType::VELOCITY) {
-                control_error = local_target - shaft_velocity;
+            else if (point_type == SetPointType::VELOCITY) {
+                control_error = target - shaft_velocity;
             }
             float controller_response = control_reg.regulation(control_error, T, false);
             #ifdef IS_GLOBAL_CONTROL_VARIABLES

@@ -73,10 +73,9 @@ public:
         full_pwm(htim->Instance->ARR),
         htim(htim)
     {
-        // TODO: fix limits setup from config
-        /*if (!set_limits(limits)) {
+        if (!set_limits(limits)) {
             exit(-1);
-        }*/
+        }
     }
 
     virtual bool check_limits(const DriveLimits& limits) override {
@@ -106,6 +105,7 @@ public:
         target = angle;
         return true;
     }
+
     virtual bool set_velocity_point(float velocity) {
         point_type = SetPointType::VELOCITY;
         target = velocity;
