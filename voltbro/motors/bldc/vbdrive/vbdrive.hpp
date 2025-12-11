@@ -1,10 +1,15 @@
 #pragma once
 #if defined(STM32G4) || defined(STM32_G)
 #include "stm32g4xx_hal.h"
-#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_CORDIC_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED)
+#include "stm32g4xx_ll_i2c.h"
+#include "stm32g4xx_ll_gpio.h"
+#include "stm32g4xx_ll_spi.h"
+
+#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_CORDIC_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED) && defined(HAL_SPI_MODULE_ENABLED)
 
 #include "../foc/foc.h"
 #include <voltbro/math/dsp/low_pass_filter.hpp>
+#include <voltbro/eeprom/eeprom.hpp>
 
 class VBInverter: public BaseInverter {
 private:
@@ -51,9 +56,9 @@ public:
         // Record offset;
         int cycles = 100;
         for (int i = 0; i < cycles; i++) {
+            HAL_Delay(2);
             I_A_offset += read_raw_A();
             I_B_offset += read_raw_B();
-            HAL_Delay(1);
         }
         I_A_offset /= (float)cycles;
         I_B_offset /= (float)cycles;
@@ -89,20 +94,132 @@ public:
 };
 
 class InductiveSensor {
+public:
+    struct State {
+        static constexpr uint32_t TYPE_ID = 0xBBAAAA22;
+        uint32_t type_id;
+        bool was_programmed;
+
+        void reset() {
+            was_programmed = false;
+            type_id = TYPE_ID;
+        }
+    };
 protected:
     static const uint32_t read_pos_cmd = 209;
+
+    const uint16_t state_location;
+
+    EEPROM& eeprom;
+    bool is_started = false;
     GpioPin spi_cs;
     SPI_HandleTypeDef* hspi;
     float current_angle = NAN;
     float current_speed = 0;
     int revolutions = 0;
-    LowPassFilter speed_filter = LowPassFilter(0.005f);
+    LowPassFilter speed_filter = LowPassFilter(0.1f);
+
+    uint32_t transmit_command(uint32_t TxData) {
+        spi_cs.reset();
+
+        uint32_t retval = 0;
+
+        LL_SPI_TransmitData16(SPI3, (uint16_t)( TxData >> 16 ));
+        while(!LL_SPI_IsActiveFlag_RXNE(SPI3));
+
+        retval = (uint32_t)LL_SPI_ReceiveData16(SPI3) << 16;
+
+        LL_SPI_TransmitData16(SPI3, (uint16_t)( TxData ));
+        while(!LL_SPI_IsActiveFlag_RXNE(SPI3));
+
+        retval += (uint32_t)LL_SPI_ReceiveData16(SPI3);
+
+        spi_cs.set();
+
+        return retval;
+    }
+
+    void program() {
+        InductiveSensor::State state;
+        HAL_IMPORTANT(eeprom.read<InductiveSensor::State>(&state, state_location));
+        if (state.type_id != InductiveSensor::State::TYPE_ID) {
+            state.reset();
+        }
+
+        LL_GPIO_SetOutputPin(INDUCT_EN_GPIO_Port, INDUCT_EN_Pin);
+
+        if (state.was_programmed) {
+            return;
+        }
+
+        #pragma region ENCODER_PROGRAMMING
+        LL_SPI_Enable(SPI3);
+
+        HAL_Delay(20);
+
+        constexpr uint32_t SERV_MODE_CMD = 64318;
+        constexpr uint32_t ENABLE_SPI_CMD = 270593;
+        constexpr uint32_t WRITE_EEPROM_1_CMD = 8979;
+        constexpr uint32_t EXIT_SRV_MODE_CMD = 897;
+        constexpr uint32_t PWL_Y0_CMD = 13569;
+        constexpr uint32_t PWL_X1_CMD = 4294916353;
+        constexpr uint32_t PWL_Y1_CMD = 4294917377;
+        constexpr uint32_t WRITE_EEPROM_2_CMD = 14113;
+
+        transmit_command(SERV_MODE_CMD);
+        transmit_command(ENABLE_SPI_CMD);
+        transmit_command(WRITE_EEPROM_1_CMD);
+
+        HAL_Delay(100);
+
+        transmit_command(EXIT_SRV_MODE_CMD);
+
+        // reboot
+        LL_GPIO_ResetOutputPin(INDUCT_EN_GPIO_Port, INDUCT_EN_Pin);
+        HAL_Delay(20);
+        LL_GPIO_SetOutputPin(INDUCT_EN_GPIO_Port, INDUCT_EN_Pin);
+        HAL_Delay(20);
+
+        transmit_command(SERV_MODE_CMD);
+        transmit_command(PWL_Y0_CMD);
+        transmit_command(PWL_X1_CMD);
+        transmit_command(PWL_Y1_CMD);
+        transmit_command(WRITE_EEPROM_2_CMD);
+
+        HAL_Delay(100);
+
+        transmit_command(EXIT_SRV_MODE_CMD);
+
+        #pragma endregion
+
+        state.was_programmed = true;
+        HAL_IMPORTANT(eeprom.write<InductiveSensor::State>(&state, state_location));
+    }
 
 public:
-    InductiveSensor(SPI_HandleTypeDef* hspi, GpioPin spi_cs):
+    InductiveSensor(
+        EEPROM& eeprom,
+        uint16_t state_location,
+        SPI_HandleTypeDef* hspi,
+        GpioPin spi_cs
+    ):
+        state_location(state_location),
+        eeprom(eeprom),
         spi_cs(spi_cs),
         hspi(hspi)
         {}
+
+    void init() {
+        if (has_started()) {
+            return;
+        }
+        program();
+        is_started = true;
+    }
+
+    bool has_started() const {
+        return is_started;
+    }
 
     int get_revolutions() {
         return revolutions;
@@ -159,10 +276,10 @@ public:
 
 class VBDrive: public FOC {
 protected:
-    InductiveSensor inductive_sensor;
+    InductiveSensor& inductive_sensor;
     void update_angle() override {
         update_electric_angle();
-        shaft_angle = inductive_sensor.get_angle();
+        shaft_angle = inductive_sensor.get_revolutions() * pi2 + inductive_sensor.get_angle();
     }
     void update_sensors() override {
         FOC::update_sensors();
@@ -172,7 +289,6 @@ public:
     VBDrive(
         float T,
         KalmanConfig&& kalman_config,
-        PIDConfig&& control_config,
         PIDConfig&& q_config,
         PIDConfig&& d_config,
         const DriveLimits& drive_limits,
@@ -180,13 +296,11 @@ public:
         TIM_HandleTypeDef* htim,
         GenericEncoder& encoder,
         VBInverter& inverter,
-        SPI_HandleTypeDef* hspi_inductive,
-        GpioPin spi_inductive_pin
+        InductiveSensor& inductive_sensor
     ):
         FOC(
             T,
             std::move(kalman_config),
-            std::move(control_config),
             std::move(q_config),
             std::move(d_config),
             drive_limits,
@@ -195,8 +309,18 @@ public:
             encoder,
             inverter
         ),
-        inductive_sensor(hspi_inductive, spi_inductive_pin)
+        inductive_sensor(inductive_sensor)
         {}
+
+        void set_current_regulator_params(PIDConfig&& config) {
+            float q_integral = q_reg.get_integral_error();
+            q_reg = PIDRegulator(std::move(config));
+            q_reg.set_integral_error(q_integral);
+
+            float d_integral = d_reg.get_integral_error();
+            d_reg = PIDRegulator(std::move(config));
+            d_reg.set_integral_error(d_integral);
+        }
 
         void update_with_dt(float dt) {
             inductive_sensor.update(dt);
@@ -217,6 +341,9 @@ public:
                 return result;
             }
             result = HAL_TIMEx_PWMN_Start(htim, TIM_CHANNEL_3); // CN-phase
+
+            inductive_sensor.init();
+
             return result;
         }
 
@@ -291,5 +418,6 @@ public:
             calibration_data.meas_elec_offset = measured_elec_offset;
         }
 };
+
 #endif
 #endif

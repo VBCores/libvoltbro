@@ -13,7 +13,7 @@ constexpr size_t CALIBRATION_BUFF_SIZE = 1024;
 using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
 using calibration_array_t = const __non_const_calib_array_t;
 struct CalibrationData {
-    static constexpr uint32_t TYPE_ID = 0x66ABCDEF;
+    static constexpr uint32_t TYPE_ID = 0x88ABCDEF;
     uint32_t type_id;
     bool was_calibrated = false;
     bool is_encoder_inverted;
@@ -59,7 +59,7 @@ protected:
     GenericEncoder& encoder;
     PIDRegulator q_reg;
     PIDRegulator d_reg;
-    PIDRegulator control_reg;
+    PIDRegulator control_reg = PIDRegulator();
     const KalmanConfig kalman_config;
     float T;
     float raw_elec_angle = 0;
@@ -89,7 +89,6 @@ public:
     FOC(
         float T,
         KalmanConfig&& kalman_config,
-        PIDConfig&& control_config,
         PIDConfig&& q_config,
         PIDConfig&& d_config,
         const DriveLimits& drive_limits,
@@ -106,7 +105,6 @@ public:
         ),
         encoder(encoder),
         T(T),
-        control_reg(std::move(control_config)),
         q_reg(std::move(q_config)),
         d_reg(std::move(d_config)),
         kalman_config(std::move(kalman_config))

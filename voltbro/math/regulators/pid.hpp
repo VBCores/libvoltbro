@@ -52,6 +52,7 @@ protected:
     }
 public:
     explicit PIDRegulator(PIDConfig&& config) : config(std::move(config)) {}
+    PIDRegulator() {}
 
     float get_integral_error() const {
         return integral_error;

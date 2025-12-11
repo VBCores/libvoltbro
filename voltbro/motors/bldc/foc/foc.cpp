@@ -149,7 +149,7 @@ void FOC::update() {
     I_D = I_D - (LPF_COEFFICIENT * diff_D);
     I_Q = I_Q - (LPF_COEFFICIENT * diff_Q);
 
-    shaft_torque = I_Q * drive_info.torque_const * (float)drive_info.common.gear_ratio;
+    shaft_torque = -I_Q * drive_info.torque_const * (float)drive_info.common.gear_ratio;
     #ifdef IS_GLOBAL_CONTROL_VARIABLES
     shart_torque_glob = shaft_torque;
     shart_velocity_glob = shaft_velocity;

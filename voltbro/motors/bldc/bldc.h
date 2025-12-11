@@ -74,7 +74,7 @@ public:
         htim(htim)
     {
         if (!set_limits(limits)) {
-            exit(-1);
+            //exit(-1);
         }
     }
 
