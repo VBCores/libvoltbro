@@ -27,10 +27,10 @@ typedef uint64_t micros;
 
 #define pi2 6.28318530718
 
-#define force_inline __attribute__((always_inline)) static inline
+#define FORCE_INLINE __attribute__((always_inline)) inline
 #define arm_atomic(T) alignas(T) T
 
-force_inline int64_t subtract_64(uint64_t first, uint64_t second) {
+static FORCE_INLINE int64_t subtract_64(uint64_t first, uint64_t second) {
     uint64_t abs_diff = (first > second) ? (first - second): (second - first);
     return (first > second) ? (int64_t)abs_diff : -(int64_t)abs_diff;
 }

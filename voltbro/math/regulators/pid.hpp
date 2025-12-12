@@ -3,6 +3,7 @@
 #include <utility>
 #include <algorithm>
 #include <tuple>
+#include "voltbro/utils.hpp"
 
 #ifdef ARM_MATH_CM4
 #include <arm_math.h>

@@ -157,7 +157,7 @@ public:
     }
 };
 
-force_inline float get_current(Inverter& inverter, DrivePhase current_relative) {
+static FORCE_INLINE float get_current(Inverter& inverter, DrivePhase current_relative) {
     switch (current_relative) {
         case DrivePhase::PHASE_A:
             return -inverter.get_A();

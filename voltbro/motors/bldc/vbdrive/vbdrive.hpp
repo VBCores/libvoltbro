@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include "voltbro/utils.hpp"
 #if defined(STM32G4) || defined(STM32_G)
 #include "stm32g4xx_hal.h"
 #include "stm32g4xx_ll_i2c.h"
@@ -7,11 +9,13 @@
 
 #if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_CORDIC_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED) && defined(HAL_SPI_MODULE_ENABLED)
 
-#include "../foc/foc.h"
+#include "../foc/foc.hpp"
+#include <voltbro/encoders/ASxxxx/AS5047P.hpp>
 #include <voltbro/math/dsp/low_pass_filter.hpp>
 #include <voltbro/eeprom/eeprom.hpp>
+#include "voltbro/generics/spi_mixin.hpp"
 
-class VBInverter: public BaseInverter {
+class VBInverter final: public BaseInverter {
 private:
     const volatile uint32_t __attribute__((aligned(4))) ADC_1_buffer[3] = {};
     ADC_HandleTypeDef* hadc_1;
@@ -27,16 +31,16 @@ public:
     float get_stator_temperature() const { return stator_temperature; }
     float get_mcu_temperature() const { return mcu_temperature; }
 
-    float read_raw_A() const {
+    FORCE_INLINE float read_raw_A() const {
         return 3.3f * (float)ADC_1_buffer[0] / (1.0f*4096.0f);
     }
-    float read_raw_B() const {
+    FORCE_INLINE float read_raw_B() const {
         return 3.3f * (float)ADC_2_buffer[0] / (1.0f*4096.0f);
     }
-    float read_raw_V() const {
+    FORCE_INLINE float read_raw_V() const {
         return 16.0f * 3.3f * (float)ADC_1_buffer[1] / (1.0f*4096.0f);
     }
-    float read_raw_T() const {
+    FORCE_INLINE float read_raw_T() const {
         return (float)ADC_1_buffer[2]*1.1f;
     }
 
@@ -69,15 +73,17 @@ public:
             return;
         }
 
-        const float shunt_res = 0.003f;
-        const float op_amp_gain = 20.0f;
-        const float conv_factor = shunt_res * op_amp_gain;
+        constexpr float shunt_res = 0.003f;
+        constexpr float op_amp_gain = 20.0f;
+        constexpr float conv_factor = shunt_res * op_amp_gain;
 
         I_A = (read_raw_A() - I_A_offset ) / conv_factor;
         I_B = (read_raw_B() - I_B_offset ) / conv_factor;
         busV = read_raw_V();
         I_C = -I_A - I_B;
+    }
 
+    void update_temperature() {
         const float TS_CAL1_TEMP = 30u;
         const float TS_CAL2_TEMP = 130u;
         volatile float TS_CAL1 = (float)*(uint16_t*)0x1FFF75A8;
@@ -93,7 +99,7 @@ public:
     }
 };
 
-class InductiveSensor {
+class InductiveSensor: public SPIMixin {
 public:
     struct State {
         static constexpr uint32_t TYPE_ID = 0xBBAAAA22;
@@ -113,7 +119,6 @@ protected:
     EEPROM& eeprom;
     bool is_started = false;
     GpioPin spi_cs;
-    SPI_HandleTypeDef* hspi;
     float current_angle = NAN;
     float current_speed = 0;
     int revolutions = 0;
@@ -124,15 +129,15 @@ protected:
 
         uint32_t retval = 0;
 
-        LL_SPI_TransmitData16(SPI3, (uint16_t)( TxData >> 16 ));
-        while(!LL_SPI_IsActiveFlag_RXNE(SPI3));
+        LL_SPI_TransmitData16(spi->Instance, (uint16_t)( TxData >> 16 ));
+        while(!LL_SPI_IsActiveFlag_RXNE(spi->Instance));
 
-        retval = (uint32_t)LL_SPI_ReceiveData16(SPI3) << 16;
+        retval = (uint32_t)LL_SPI_ReceiveData16(spi->Instance) << 16;
 
-        LL_SPI_TransmitData16(SPI3, (uint16_t)( TxData ));
-        while(!LL_SPI_IsActiveFlag_RXNE(SPI3));
+        LL_SPI_TransmitData16(spi->Instance, (uint16_t)( TxData ));
+        while(!LL_SPI_IsActiveFlag_RXNE(spi->Instance));
 
-        retval += (uint32_t)LL_SPI_ReceiveData16(SPI3);
+        retval += (uint32_t)LL_SPI_ReceiveData16(spi->Instance);
 
         spi_cs.set();
 
@@ -203,16 +208,17 @@ public:
         SPI_HandleTypeDef* hspi,
         GpioPin spi_cs
     ):
+        SPIMixin(hspi),
         state_location(state_location),
         eeprom(eeprom),
-        spi_cs(spi_cs),
-        hspi(hspi)
+        spi_cs(spi_cs)
         {}
 
     void init() {
         if (has_started()) {
             return;
         }
+        LL_SPI_Enable(spi->Instance);
         program();
         is_started = true;
     }
@@ -221,19 +227,19 @@ public:
         return is_started;
     }
 
-    int get_revolutions() {
+    FORCE_INLINE int get_revolutions() {
         return revolutions;
     }
 
-    float get_angle() {
+    FORCE_INLINE float get_angle() {
         return current_angle;
     }
 
-    float get_speed() {
+    FORCE_INLINE float get_speed() {
         return current_speed;
     }
 
-    void update(float dt) {
+    void update() {
         static bool induct_comm_phase = 0;
         static uint16_t rx_upper = 0;
 
@@ -241,8 +247,10 @@ public:
 
         if (!induct_comm_phase) {
             // Upper 16 bits
+
             uint16_t tx_upper = (uint16_t)(read_pos_cmd >> 16);
-            HAL_SPI_TransmitReceive(hspi, (uint8_t*)&tx_upper, (uint8_t*)&rx_upper, 1, 1000);
+            rx_upper = spi_transmit_command_receive(tx_upper);
+            //HAL_SPI_TransmitReceive(hspi, (uint8_t*)&tx_upper, (uint8_t*)&rx_upper, 1, 1000);
 
             float new_angle = pi2 * static_cast<float>(rx_upper) / 65535.0f;
             float diff = new_angle - current_angle;
@@ -256,9 +264,11 @@ public:
                     diff -= pi2;
                 }
             }
+            /*
             if (!is_close(dt, 0, 1e-8)) {
                 current_speed = speed_filter(current_speed, diff / dt);
             }
+            */
             current_angle = new_angle;
 
             induct_comm_phase = true;
@@ -266,7 +276,8 @@ public:
             // Lower 16 bits
             uint16_t tx_lower = (uint16_t)(read_pos_cmd);
             uint16_t rx_lower = 0;
-            HAL_SPI_TransmitReceive(hspi, (uint8_t*)&tx_lower, (uint8_t*)&rx_lower, 1, 1000);
+            spi_transmit_only(tx_lower);
+            //HAL_SPI_TransmitReceive(hspi, (uint8_t*)&tx_lower, (uint8_t*)&rx_lower, 1, 1000);
 
             spi_cs.set(); // CS high
             induct_comm_phase = false;
@@ -274,7 +285,7 @@ public:
     }
 };
 
-class VBDrive: public FOC {
+class VBDrive final: public FOC<AS5047P> {
 protected:
     InductiveSensor& inductive_sensor;
     void update_angle() override {
@@ -282,7 +293,7 @@ protected:
         shaft_angle = inductive_sensor.get_revolutions() * pi2 + inductive_sensor.get_angle();
     }
     void update_sensors() override {
-        FOC::update_sensors();
+        FOC<AS5047P>::update_sensors();
         //shaft_velocity = inductive_sensor.get_speed();
     }
 public:
@@ -294,7 +305,7 @@ public:
         const DriveLimits& drive_limits,
         const DriveInfo& drive_info,
         TIM_HandleTypeDef* htim,
-        GenericEncoder& encoder,
+        AS5047P& encoder,
         VBInverter& inverter,
         InductiveSensor& inductive_sensor
     ):
@@ -322,9 +333,15 @@ public:
             d_reg.set_integral_error(d_integral);
         }
 
-        void update_with_dt(float dt) {
-            inductive_sensor.update(dt);
-            update();
+        void update() override {
+            static uint32_t iteration = 0;
+            static uint32_t inductive_update_counter = 0;
+            EACH_N(iteration, inductive_update_counter, 5, {
+                inductive_sensor.update();
+            })
+            iteration += 1;
+
+            FOC<AS5047P>::update();
         }
 
         HAL_StatusTypeDef init() override {

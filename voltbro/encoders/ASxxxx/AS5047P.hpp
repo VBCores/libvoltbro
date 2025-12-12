@@ -23,10 +23,12 @@ enum class AS5047PParams: uint16_t {
     ERROR_BIT = 0x4000,
     CLEAR_ERROR_AND_PARITY = 0xC000,
     // Delays
-    CS_DELAY_CYCLES = static_cast<uint16_t>(CYCLES_100NS_160Mhz * 3.5f)
+    CS_DELAY_CYCLES = static_cast<uint16_t>(CYCLES_100NS_160Mhz * 3.5f),
+    // Prepared messages
+    READ_MESSAGE = 65535
 };
 
-class AS5047P: public ASxxxx<AS5047PParams> {
+class AS5047P final: public ASxxxx<AS5047PParams> {
 public:
     AS5047P(
         GpioPin&& spi_ss,

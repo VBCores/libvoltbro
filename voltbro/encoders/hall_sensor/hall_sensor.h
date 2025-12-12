@@ -41,7 +41,7 @@ private:
     const pin pin_3;
     HallSequence sequence;
 
-    __attribute__((always_inline)) inline EncoderStep get_encoder_step() {
+    FORCE_INLINE EncoderStep get_encoder_step() {
         return EncoderStep(
             state_1 * to_underlying(sequence[0]) +
             state_2 * to_underlying(sequence[1]) +

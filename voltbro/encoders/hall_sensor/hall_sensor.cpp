@@ -1,7 +1,7 @@
 #include "hall_sensor.h"
 #if defined(STM32G4) || defined(STM32_G)
 
-force_inline bool get_pin_state(const GPIO_TypeDef* gpiox, pin p) {
+static FORCE_INLINE bool get_pin_state(const GPIO_TypeDef* gpiox, pin p) {
     return HAL_GPIO_ReadPin((GPIO_TypeDef *) gpiox, p) == GPIO_PIN_SET;
 }
 

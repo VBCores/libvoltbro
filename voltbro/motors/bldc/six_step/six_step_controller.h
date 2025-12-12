@@ -30,7 +30,7 @@ public:
         hall_sensor(hall_sensor)
     {}
 
-    __attribute__((always_inline)) void flow_direction(DrivePhase from, DrivePhase to, int16_t pwm) {
+    FORCE_INLINE void flow_direction(DrivePhase from, DrivePhase to, int16_t pwm) {
         uint16_t actual_pwm = abs(pwm);
         if (pwm < 0) {
             DrivePhase tmp = to;
