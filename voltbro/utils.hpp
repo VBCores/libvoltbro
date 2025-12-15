@@ -25,7 +25,7 @@ typedef uint16_t encoder_data;
 typedef uint32_t millis;
 typedef uint64_t micros;
 
-#define pi2 6.28318530718
+#define pi2 6.28318530718f
 
 #define FORCE_INLINE __attribute__((always_inline)) inline
 #define arm_atomic(T) alignas(T) T

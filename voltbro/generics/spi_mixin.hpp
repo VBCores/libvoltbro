@@ -16,43 +16,13 @@ protected:
     void spi_transmit_only(uint16_t command) {
         const auto spix = spi->Instance;
 
-        for (uint16_t i = 0; i < 2; i++) {
-            /* Wait until TX buffer empty */
-            while (!LL_SPI_IsActiveFlag_TXE(spix)) {
-            }
+        while (!LL_SPI_IsActiveFlag_TXE(spix)) {}
+        LL_SPI_TransmitData16(spix, command);
 
-            /* Write next byte to send */
-            uint8_t tx = reinterpret_cast<uint8_t*>(&command)[i];
-            LL_SPI_TransmitData8(spix, tx);
-        }
-
-        while (LL_SPI_IsActiveFlag_BSY(spix)) {
-        }
+        while (LL_SPI_IsActiveFlag_BSY(spix)) {}
     }
 
     uint16_t spi_transmit_command_receive(uint16_t command) {
-        /*
-        uint16_t response;
-        const auto spix = spi->Instance;
-
-        for (uint16_t i = 0; i < 2; i++) {
-            while (!LL_SPI_IsActiveFlag_TXE(spix)) {
-            }
-
-            uint8_t tx = reinterpret_cast<uint8_t*>(&command)[i];
-            LL_SPI_TransmitData8(spix, tx);
-
-            while (!LL_SPI_IsActiveFlag_RXNE(spix)) {
-            }
-
-            uint8_t rx = LL_SPI_ReceiveData8(spix);
-            reinterpret_cast<uint8_t*>(&response)[i] = rx;
-        }
-
-        while (LL_SPI_IsActiveFlag_BSY(spix)) {
-        }
-        return response;
-        */
         SPI_TypeDef *spix = spi->Instance;
 
         while (!LL_SPI_IsActiveFlag_TXE(spix)) {}

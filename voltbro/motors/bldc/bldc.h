@@ -97,26 +97,23 @@ public:
         return AbstractMotor::apply_limits();
     }
 
-    virtual bool set_angle_point(float angle) {
-        if (angle < 0 || angle > pi2) {
-            return false;
-        }
+    FORCE_INLINE virtual bool set_angle_point(float angle) {
         point_type = SetPointType::POSITION;
         target = angle;
         return true;
     }
 
-    virtual bool set_velocity_point(float velocity) {
+    FORCE_INLINE virtual bool set_velocity_point(float velocity) {
         point_type = SetPointType::VELOCITY;
         target = velocity;
         return true;
     }
-    virtual bool set_torque_point(float torque) {
+    FORCE_INLINE virtual bool set_torque_point(float torque) {
         point_type = SetPointType::TORQUE;
         target = torque;
         return true;
     }
-    virtual bool set_voltage_point(float voltage) {
+    FORCE_INLINE virtual bool set_voltage_point(float voltage) {
         point_type = SetPointType::VOLTAGE;
         target = voltage;
         return true;
@@ -127,19 +124,19 @@ public:
     const BaseInverter& get_inverter() const {
         return inverter;
     }
-    bool is_on() const {
+    FORCE_INLINE bool is_on() const {
         return _is_on;
     }
-    float get_angle() const {
+    FORCE_INLINE float get_angle() const {
         return shaft_angle + drive_info.common.user_angle_offset;
     }
-    float get_velocity() const {
+    FORCE_INLINE float get_velocity() const {
         return shaft_velocity;
     }
-    float get_voltage() const {
+    FORCE_INLINE float get_voltage() const {
         return inverter.get_busV();
     }
-    virtual float get_torque() const {
+    FORCE_INLINE virtual float get_torque() const {
         return shaft_torque;
     }
 
@@ -150,10 +147,10 @@ public:
     HAL_StatusTypeDef start() override;
     HAL_StatusTypeDef set_state(bool) override;
 
-    virtual void set_pwm() {
-        __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, DQs[0]);
-        __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, DQs[1]);
-        __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, DQs[2]);
+    FORCE_INLINE virtual void set_pwm() {
+        htim->Instance->CCR1 = DQs[0];
+        htim->Instance->CCR2 = DQs[1];
+        htim->Instance->CCR3 = DQs[2];
     }
 };
 

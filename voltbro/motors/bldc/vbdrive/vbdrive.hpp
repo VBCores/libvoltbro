@@ -275,8 +275,8 @@ public:
         } else {
             // Lower 16 bits
             uint16_t tx_lower = (uint16_t)(read_pos_cmd);
-            uint16_t rx_lower = 0;
-            spi_transmit_only(tx_lower);
+            //uint16_t rx_lower = 0;
+            //spi_transmit_only(tx_lower);
             //HAL_SPI_TransmitReceive(hspi, (uint8_t*)&tx_lower, (uint8_t*)&rx_lower, 1, 1000);
 
             spi_cs.set(); // CS high
@@ -285,17 +285,15 @@ public:
     }
 };
 
-class VBDrive final: public FOC<AS5047P> {
+class VBDrive final: public FOC {
 protected:
     InductiveSensor& inductive_sensor;
+    /*
     void update_angle() override {
         update_electric_angle();
         shaft_angle = inductive_sensor.get_revolutions() * pi2 + inductive_sensor.get_angle();
     }
-    void update_sensors() override {
-        FOC<AS5047P>::update_sensors();
-        //shaft_velocity = inductive_sensor.get_speed();
-    }
+    */
 public:
     VBDrive(
         float T,
@@ -333,16 +331,22 @@ public:
             d_reg.set_integral_error(d_integral);
         }
 
+        /*
         void update() override {
+
             static uint32_t iteration = 0;
             static uint32_t inductive_update_counter = 0;
-            EACH_N(iteration, inductive_update_counter, 5, {
+            // Per datasheet, maximum "temporal frequency" of this encoder is ~4.63 kHz
+            // Because datasheet specifies the "Position DSP Update Rate tPER" as 216 µs.
+            EACH_N(iteration, inductive_update_counter, 10, {
                 inductive_sensor.update();
             })
             iteration += 1;
 
-            FOC<AS5047P>::update();
+
+            FOC::update();
         }
+        */
 
         HAL_StatusTypeDef init() override {
             HAL_StatusTypeDef result = FOC::init();
@@ -364,7 +368,7 @@ public:
             return result;
         }
 
-        virtual void set_pwm() override {
+        FORCE_INLINE void set_pwm() override {
             // limiting duty cycle to give ADC time to sample current reading
             // RM0440 21.4.12
             for (size_t index = 0; index < 3; index++) {
@@ -373,9 +377,9 @@ public:
                 }
             }
 
-            __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, DQs[0]);
-            __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, DQs[1]);
-            __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, DQs[2]);
+            htim->Instance->CCR1 = DQs[0];
+            htim->Instance->CCR2 = DQs[1];
+            htim->Instance->CCR3 = DQs[2];
         }
 
         void calibrate(CalibrationData& calibration_data) override {
