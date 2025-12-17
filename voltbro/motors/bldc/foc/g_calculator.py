@@ -1,12 +1,12 @@
 import numpy as np
 
-T = 0.00005
+T = 0.000025
 
 # TODO: move all of this to C++ code as a constexpr function
-max_acceleration = 500.0  # [rad/s^2]
-p0 = w = 4 * np.sqrt(max_acceleration)
-print(p0, w)
-#p0 = w = 250
+#max_acceleration = 500.0  # [rad/s^2]
+#p0 = w = 4 * np.sqrt(max_acceleration)
+#print(p0, w)
+p0 = w = 250
 # angle (should be [40;50])
 theta_deg = 40
 ang = np.deg2rad(theta_deg)
@@ -27,4 +27,6 @@ g3 = l3
 g2 = l2 - T*g3
 g1 = l1 - T*g2 - g3*np.square(T)/2
 
-print(g1, g2, g3)
+print(g1)
+print(g2)
+print(g3)

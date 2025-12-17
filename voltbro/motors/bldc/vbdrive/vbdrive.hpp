@@ -17,6 +17,8 @@
 
 class VBInverter final: public BaseInverter {
 private:
+    static constexpr float adc_conversion_factor = 3.3f / (1.0f * 4096.0f);
+
     const volatile uint32_t __attribute__((aligned(4))) ADC_1_buffer[3] = {};
     ADC_HandleTypeDef* hadc_1;
     const volatile uint32_t __attribute__((aligned(4))) ADC_2_buffer[2] = {};
@@ -32,13 +34,13 @@ public:
     float get_mcu_temperature() const { return mcu_temperature; }
 
     FORCE_INLINE float read_raw_A() const {
-        return 3.3f * (float)ADC_1_buffer[0] / (1.0f*4096.0f);
+        return (float)ADC_1_buffer[0] * adc_conversion_factor;
     }
     FORCE_INLINE float read_raw_B() const {
-        return 3.3f * (float)ADC_2_buffer[0] / (1.0f*4096.0f);
+        return (float)ADC_2_buffer[0] * adc_conversion_factor;
     }
     FORCE_INLINE float read_raw_V() const {
-        return 16.0f * 3.3f * (float)ADC_1_buffer[1] / (1.0f*4096.0f);
+        return 16.0f * (float)ADC_1_buffer[1] * adc_conversion_factor;
     }
     FORCE_INLINE float read_raw_T() const {
         return (float)ADC_1_buffer[2]*1.1f;
@@ -84,18 +86,18 @@ public:
     }
 
     void update_temperature() {
-        const float TS_CAL1_TEMP = 30u;
-        const float TS_CAL2_TEMP = 130u;
+        const float TS_CAL1_TEMP = 30.0f;
+        const float TS_CAL2_TEMP = 130.0f;
         volatile float TS_CAL1 = (float)*(uint16_t*)0x1FFF75A8;
         volatile float TS_CAL2 = (float)*(uint16_t*)0x1FFF75CA;
         mcu_temperature = (TS_CAL2_TEMP - TS_CAL1_TEMP) * (read_raw_T() - TS_CAL1) / ( TS_CAL2 - TS_CAL1 ) + TS_CAL1_TEMP;
 
-        float thermistor = 1.0f / (4095.0f / ADC_2_buffer[1] - 1);
+        float thermistor = 1.0f / (4095.0f / ADC_2_buffer[1] - 1.0f);
         float steinhart = logf(thermistor);
         steinhart /= 3950.0f;
-        steinhart += 1.0 / (25.0f + 273.15);
-        steinhart = 1.0 / steinhart;
-        stator_temperature = steinhart - 273.15;
+        steinhart += 1.0f / (25.0f + 273.15f);
+        steinhart = 1.0f / steinhart;
+        stator_temperature = steinhart - 273.15f;
     }
 };
 
@@ -321,14 +323,9 @@ public:
         inductive_sensor(inductive_sensor)
         {}
 
-        void set_current_regulator_params(PIDConfig&& config) {
-            float q_integral = q_reg.get_integral_error();
-            q_reg = PIDRegulator(std::move(config));
-            q_reg.set_integral_error(q_integral);
-
-            float d_integral = d_reg.get_integral_error();
-            d_reg = PIDRegulator(std::move(config));
-            d_reg.set_integral_error(d_integral);
+        void set_current_regulator_params(float kp, float ki) {
+            q_reg.update_config(kp, ki, 0);
+            d_reg.update_config(kp, ki, 0);
         }
 
         /*

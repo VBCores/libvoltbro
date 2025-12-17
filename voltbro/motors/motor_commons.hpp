@@ -23,9 +23,8 @@ constexpr float FLOAT_INF = std::numeric_limits<float>::infinity();
 struct DriveLimits {
     float current_limit = NAN;  // Real current limit for operation, can be modified by stall detection, etc.
 
-    float user_current_limit = FLOAT_INF;
-    float user_torque_limit = FLOAT_INF;
-    float user_voltage_limit = FLOAT_INF;
+    float user_current_limit = NAN;
+    float user_torque_limit = NAN;
     float user_speed_limit = FLOAT_INF;
     float user_position_lower_limit = -FLOAT_INF;
     float user_position_upper_limit = FLOAT_INF;

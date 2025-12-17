@@ -74,7 +74,7 @@ public:
         htim(htim)
     {
         if (!set_limits(limits)) {
-            //exit(-1);
+            exit(-1);
         }
     }
 
@@ -88,10 +88,10 @@ public:
         return AbstractMotor::check_limits(limits);
     }
     virtual HAL_StatusTypeDef apply_limits() override {
-        if (drive_limits.user_current_limit <= 0) {
+        if (std::isnan(drive_limits.user_current_limit) || drive_limits.user_current_limit <= 0) {
             drive_limits.user_current_limit = drive_info.max_current;
         }
-        if (drive_limits.user_torque_limit <= 0) {
+        if (std::isnan(drive_limits.user_torque_limit) || drive_limits.user_torque_limit <= 0) {
             drive_limits.user_torque_limit = drive_info.max_torque;
         }
         return AbstractMotor::apply_limits();

@@ -36,7 +36,8 @@ struct KalmanProfile {
 static volatile KalmanProfile kalman_profile;
 #endif
 
-void FOC::update_electric_angle() {
+
+void FOC::update_angle() {
     encoder.update_value();
 
     encoder_data raw_value = encoder.get_value();
@@ -51,22 +52,6 @@ void FOC::update_electric_angle() {
     }
 
     raw_elec_angle = offset_value * (pi2 / (float)encoder.CPR);
-}
-
-void FOC::update_angle() {
-    update_electric_angle();
-    /*
-    const float rads_per_rev = pi2 / drive_info.common.gear_ratio;
-    int revolutions = encoder.get_revolutions() % drive_info.common.gear_ratio;
-    float base_angle = 0;
-    if (revolutions < 0) {
-        base_angle = (drive_info.common.gear_ratio + revolutions) * rads_per_rev;
-    }
-    else {
-        base_angle = revolutions * rads_per_rev;
-    }
-    shaft_angle = base_angle + (raw_elec_angle / drive_info.common.gear_ratio);
-    */
 }
 
 void FOC::apply_kalman() {
@@ -221,7 +206,6 @@ void FOC::update() {
     #ifndef IS_GLOBAL_CONTROL_VARIABLES
     float V_d, V_q;
     static float I_D = 0;
-    static float I_Q = 0;
     #endif
     #ifdef FOC_PROFILE
     t_start = DWT->CYCCNT;
@@ -300,7 +284,7 @@ void FOC::update() {
             i_q_set = copysign(abs_max_current_from_torque, i_q_set);
         }
         if (
-            drive_limits.current_limit > 0 &&
+            drive_limits.current_limit > 0.0f &&
             (fabs(i_q_set) > fabs(drive_limits.current_limit))
         ) {
             i_q_set = copysign(drive_limits.current_limit, i_q_set);

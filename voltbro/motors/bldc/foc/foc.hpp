@@ -20,7 +20,7 @@ using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
 using calibration_array_t = const __non_const_calib_array_t;
 
 struct CalibrationData {
-    static constexpr uint32_t TYPE_ID = 0x88ABCDEF;
+    static constexpr uint32_t TYPE_ID = 0x99ABCDEF;
     uint32_t type_id;
     bool was_calibrated = false;
     bool is_encoder_inverted;
@@ -71,12 +71,11 @@ protected:
     float T;
     float raw_elec_angle = 0;
     float elec_angle = 0;
+    float I_Q = 0;
     calibration_array_t* lookup_table = nullptr;
-    bool is_limited = false;
 
     void apply_kalman();
-    virtual void update_angle();
-    void update_electric_angle();
+    void update_angle();
 
     void set_windings_calibration(float current_angle);
     float reset_to_zero(float start_angle, float d_delta);
@@ -119,6 +118,9 @@ public:
 
     float get_electric_angle() {
         return elec_angle;
+    }
+    float get_working_current() {
+        return I_Q;
     }
 
     void set_foc_point(FOCTarget&& target) {
