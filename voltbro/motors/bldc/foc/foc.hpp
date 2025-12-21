@@ -20,7 +20,7 @@ using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
 using calibration_array_t = const __non_const_calib_array_t;
 
 struct CalibrationData {
-    static constexpr uint32_t TYPE_ID = 0x99ABCDEF;
+    static constexpr uint32_t TYPE_ID = 0x22ABCDEF;
     uint32_t type_id;
     bool was_calibrated = false;
     bool is_encoder_inverted;

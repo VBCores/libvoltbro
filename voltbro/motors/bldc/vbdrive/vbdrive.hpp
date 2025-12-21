@@ -104,7 +104,7 @@ public:
 class InductiveSensor: public SPIMixin {
 public:
     struct State {
-        static constexpr uint32_t TYPE_ID = 0xBBAAAA22;
+        static constexpr uint32_t TYPE_ID = 0xAAAAAA99;
         uint32_t type_id;
         bool was_programmed;
 
