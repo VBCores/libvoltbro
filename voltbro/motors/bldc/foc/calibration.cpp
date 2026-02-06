@@ -5,6 +5,8 @@
 #include "foc.hpp"
 
 #include "arm_math.h"
+#include "main.h"
+#include <numeric>
 
 #include "voltbro/math/transform.hpp"
 
@@ -34,153 +36,185 @@ void FOC::set_windings_calibration(float target_angle) {
 }
 
 
-bool FOC::check_if_inverted(float start_angle, float d_delta) {
-    float current_angle = start_angle;
-
-    float old_angle = raw_elec_angle;
-    float diff = 0;
-    size_t step_counter = 0;
-    size_t decrease_counter = 0;
-    size_t increase_counter = 0;
-    while(step_counter < 400) {
-        step_counter += 1;
-        diff = old_angle - raw_elec_angle;
-        if (diff > 0) {
-            // Angle is decreasing
-            decrease_counter += 1;
+// NOTE: caller has to GUARANTEE that calculations_buffer is (CALIBRATION_BUFF_SIZE + 1) * sizeof(int) bytes long
+void FOC::calibrate(CalibrationData& calibration_data, std::byte* additional_buffer) {
+    auto zero_pwm = [this]() {
+        DQs[0] = 0;
+        DQs[1] = 0;
+        DQs[2] = 0;
+        set_pwm();
+     };
+    auto set_electric_angle = [this](float angle, uint32_t delay=20) {
+        set_windings_calibration(angle);
+        HAL_Delay(delay);
+        for (int i = 0; i < 5; i++) {
+            update_angle();
         }
-        else {
-            increase_counter += 1;
-        }
+    };
 
-        old_angle = raw_elec_angle;
-        current_angle += d_delta;
-        set_windings_calibration(current_angle);
-        HAL_Delay(5);
-        update_angle();
-#ifdef DEBUG
-        current_encoder_value = encoder.get_value();
-#endif
+    // Sanity check: quarter mechanical turn forward (open-loop)
+    {
+        const float elec_step = 0.5f;
+        const float end_angle = pi2 * (float)drive_info.common.ppairs * drive_info.common.gear_ratio / 4;
+        float ang = 0.0f;
+        while (ang < end_angle) {
+            set_electric_angle(ang, 10);
+            ang += elec_step;
+        }
     }
 
-    return decrease_counter >= increase_counter;
-}
-
-
-float FOC::reset_to_zero(float start_angle, float d_delta) {
-    float current_angle = start_angle;
-
-    float old_angle = raw_elec_angle;
-    while((old_angle - raw_elec_angle) < PI) {
-        old_angle = raw_elec_angle;
-        current_angle += d_delta;
-        set_windings_calibration(current_angle);
-        HAL_Delay(5);
-        update_angle();
-#ifdef DEBUG
-        current_encoder_value = encoder.get_value();
-#endif
-    }
-
-    return raw_elec_angle;
-}
-
-
-void FOC::calibrate(CalibrationData& calibration_data) {
-    uint16_t offset_samples[CALIBRATION_BUFF_SIZE] = {0};
-    float CalBuf_Fwd[CALIBRATION_BUFF_SIZE] = {0};
-    float CalBuf_Bckwd[CALIBRATION_BUFF_SIZE] = {0};
-
-    float current_angle = 0;
-    float d_delta = 0.25f * (float)drive_info.common.ppairs * pi2 / (float)CALIBRATION_BUFF_SIZE;
-
-    calibration_data.is_encoder_inverted = check_if_inverted(current_angle, d_delta);
-    const_cast<bool&>(encoder.is_inverted) = calibration_data.is_encoder_inverted;
-
-    current_angle = reset_to_zero(current_angle, d_delta);
-    float d_offset = current_angle;
-
-    uint32_t timestamp = HAL_GetTick();
-    float old_angle = raw_elec_angle;
-    // rotate in positive direction until you make full mechanical rotation
-    // f_elec_angle < 2*PI
-    while( (old_angle - raw_elec_angle) < PI || (HAL_GetTick() < timestamp + 100) ) {
-        old_angle = raw_elec_angle;
-
-        uint16_t index = (uint16_t)( (float)CALIBRATION_BUFF_SIZE*raw_elec_angle / (2.0f*PI) );
-        CalBuf_Fwd[ index ] = ( current_angle - d_offset ) / drive_info.common.ppairs - raw_elec_angle;
-        // current algorithm sometimes leaves empty values in calibration buffer
-        // this part fills the upcoming array member with the current value, which is overwritten in case of successful new reading
-        if( index < CALIBRATION_BUFF_SIZE ) {
-            CalBuf_Fwd[ index + 1 ] = CalBuf_Fwd[ index ];
-        }
-
-        current_angle += d_delta;
-
-        set_windings_calibration(current_angle);
-        HAL_Delay(5);
-        update_angle();
-#ifdef DEBUG
-        current_encoder_value = encoder.get_value();
+#pragma region Electrical Offset
+    const int ppairs = drive_info.common.ppairs;
+    const int samples_count = ppairs * 2;
+#ifdef MONITOR
+    int offset_samples[28] = {0};
+#else
+    int offset_samples[samples_count] = {0};
 #endif
 
-        if( fabs( mfmod( current_angle, 2.0f*PI ) - PI ) < d_delta / 2.0f ) {
-            offset_samples[calibration_data.ppair_counter] = encoder.get_value();
-            calibration_data.ppair_counter += 1;
+    auto get_circular_error = [&](int meas, int expected, int cycle_len) {
+        int diff = meas - expected;
+        while (diff > (cycle_len / 2)) {
+            diff -= cycle_len;
         }
-    }
+        while (diff < (-cycle_len / 2)) {
+            diff += cycle_len;
+        }
+        return diff;
+    };
+    auto return_to_zero = [this, &ppairs, &set_electric_angle, &get_circular_error]() {
+        float angle = 0.0f;
+        set_electric_angle(angle, 100);
 
-    for(int i = 0; i < 256; i++) {
-        current_angle += d_delta;
-        set_windings_calibration(current_angle);
-        HAL_Delay(5);
-        update_angle();
-#ifdef DEBUG
-        current_encoder_value = encoder.get_value();
+        float step = ppairs * pi2 / 4000.0f;
+        if (raw_elec_angle < (encoder.CPR / 2.0f)) {
+            step = -step;
+        }
+        while(abs(get_circular_error(encoder.get_value(), 0, encoder.CPR)) > (encoder.CPR / 1000)) {
+            angle += step;
+            set_electric_angle(angle, 5);
+        }
+        set_electric_angle(0.0f, 100);
+
+        return raw_elec_angle;
+    };
+
+    const int ppair_step_counts = 50;
+    const int encoder_steps_per_pair = encoder.CPR / ppairs;
+    const float ppair_step = pi2 / ppair_step_counts;
+    const int overshoot_steps = 4;
+
+    auto offset_calibration_pass = [&](int* offset_array, int offset) {
+        // Undershoot at the start to avoid hysteresis then roll forward a bit
+        for (int j = 1; j < overshoot_steps; j++) {
+            set_electric_angle(0 - ppair_step * j);
+        }
+        for (int j = overshoot_steps; j >= 1; j--) {
+            set_electric_angle(0 - ppair_step * j);
+        }
+
+        for (int i = 0; i < ppairs; i++) {
+            const float local_zero_point = pi2 * i;
+            set_electric_angle(local_zero_point);
+
+            int expected_value = encoder_steps_per_pair * i;
+            int current_value = int(encoder.get_value()) - offset;
+            int current_offset = get_circular_error(current_value, expected_value, encoder.CPR);
+            offset_array[i] = current_offset;
+
+            for (int j = 0; j < ppair_step_counts; j++) {
+                set_electric_angle(local_zero_point + ppair_step * (j + 1));
+            }
+        }
+
+        // Overshoot at the end to avoid hysteresis then roll back a bit
+        for (int j = 1; j < overshoot_steps; j++) {
+            set_electric_angle(pi2 * ppairs + ppair_step * j);
+        }
+        for (int j = overshoot_steps; j >= 1; j--) {
+            set_electric_angle(pi2 * ppairs + ppair_step * j);
+        }
+
+        for (int i = ppairs - 1; i >= 0; i--) {
+            const float local_zero_point = pi2 * (i + 1);
+            set_electric_angle(local_zero_point);
+
+            int expected_value = encoder_steps_per_pair * (i + 1);
+            int current_value = int(encoder.get_value()) - offset;
+            int current_offset = get_circular_error(current_value, expected_value, encoder.CPR);
+            offset_array[samples_count - i - 1] = current_offset;
+
+            for (int j = 0; j < ppair_step_counts; j++) {
+                set_electric_angle(local_zero_point - ppair_step * (j + 1));
+            }
+        }
+
+        int offset_sum = 0;
+        for (auto& sample : offset_samples) {
+            offset_sum += sample;
+        }
+        return offset_sum / samples_count;
+    };
+
+    return_to_zero();
+    int average_offset = offset_calibration_pass(offset_samples, 0);
+    calibration_data.meas_elec_offset = average_offset;
+
+#ifdef MONITOR
+    int verification_samples[28] = {0};
+#else
+    int verification_samples[samples_count] = {0};
 #endif
-    }
-
-    // NOTE: ZERO
-    current_angle = reset_to_zero(current_angle, d_delta);
-
-    d_offset = current_angle - (2.0f*PI) * drive_info.common.ppairs;
-
-    timestamp = HAL_GetTick();
-    old_angle = raw_elec_angle;
-    // rotate in negative direction until you return to the beginning
-    while ( (old_angle - raw_elec_angle) > -PI || (HAL_GetTick() < timestamp + 100) ) {
-        old_angle = raw_elec_angle;
-
-        uint16_t index = (uint16_t)( (float)CALIBRATION_BUFF_SIZE*raw_elec_angle / (2.0f*PI) );
-        CalBuf_Bckwd[index] = (current_angle - d_offset) / drive_info.common.ppairs - raw_elec_angle;
-        // current algorithm sometimes leaves empty values in calibration buffer
-        // this part fills the upcoming array member with the current value, which is overwritten in case of successful new reading
-        if(index > 0) {
-            CalBuf_Bckwd[index - 1] = CalBuf_Bckwd[index];
-        }
-
-        current_angle -= d_delta;
-
-        set_windings_calibration(current_angle);
-        HAL_Delay(5);
-        update_angle();
-#ifdef DEBUG
-        current_encoder_value = encoder.get_value();
-#endif
-
-        if( fabs( mfmod( current_angle, 2.0f*PI ) - PI ) < d_delta/2.0f ) {
-            offset_samples[calibration_data.ppair_counter] = encoder.get_value();
-            calibration_data.ppair_counter += 1;
+    return_to_zero();
+    int average_error = offset_calibration_pass(verification_samples, average_offset);
+    for (auto sample : verification_samples) {
+        if (abs(sample) > (encoder_steps_per_pair / 10)) {
+            zero_pwm();
+            Error_Handler(); // Calibration failed
         }
     }
+#pragma endregion
 
-    for( int i = 0; i < drive_info.common.ppairs; i++ ) {
-        int16_t enc_angle = offset_samples[i];
-        calibration_data.meas_elec_offset += (encoder.CPR / drive_info.common.ppairs) - (enc_angle % (encoder.CPR / drive_info.common.ppairs));
+    return_to_zero();
+
+#pragma region Curve Sampling
+    std::array<int, CALIBRATION_BUFF_SIZE>* fwd_calibration_array = &calibration_data.calibration_array;
+    std::array<int, CALIBRATION_BUFF_SIZE>* bwd_calibration_array = new (additional_buffer) std::array<int, CALIBRATION_BUFF_SIZE>{};
+
+    const int SENTINEL_EMPTY = 0x7FFFFFFF;
+    for (auto& array: {fwd_calibration_array, bwd_calibration_array}) {
+        array->fill(SENTINEL_EMPTY);
     }
-    calibration_data.meas_elec_offset /= drive_info.common.ppairs;
 
-    // TODO: calculate calibration curve here
+    const float electrical_span = (float)ppairs * pi2;
+    const float electric_angle_delta = electrical_span / (float)calibration_data.calibration_array.size();
+    float encoder_steps_in_electrical_radian = (float)encoder.CPR / (ppairs * pi2);
+    float electric_angle = 0;
+
+    // Undershoot at the start to avoid hysteresis then roll forward a bit
+    for (int j = 1; j < overshoot_steps; j++) {
+        set_electric_angle(0 - ppair_step * j);
+    }
+    for (int j = overshoot_steps; j >= 1; j--) {
+        set_electric_angle(0 - ppair_step * j);
+    }
+    while (electric_angle < electrical_span) {
+        set_electric_angle(electric_angle, 5);
+
+        int expected_value = (int)roundf(electric_angle * encoder_steps_in_electrical_radian);
+        int offset_encoder_value = static_cast<int>(encoder.get_value()) - average_offset;
+        if (offset_encoder_value < 0) {
+            offset_encoder_value += encoder.CPR;
+        }
+        size_t idx = static_cast<size_t>(offset_encoder_value >> 4);
+        (*fwd_calibration_array)[idx] = get_circular_error(offset_encoder_value, expected_value, encoder.CPR);
+
+        electric_angle += electric_angle_delta;
+    }
+#pragma endregion
+
+    zero_pwm();
+    asm volatile("nop");  // debug breakpoint
 }
 
 #endif

@@ -7,10 +7,10 @@
 #include <cyphal/cyphal.h>
 #include <voltbro/eeprom/eeprom.hpp>
 
+#include <nanoprintf.h>
 #include <cstdint>
 #include <string>
 #include <memory>
-#include <cstdarg>
 #include <cstring>
 
 static constexpr size_t MAX_SIZE = 512;
@@ -40,7 +40,7 @@ public:
 
         va_list args;
         va_start(args, fmt);
-        int written = vsnprintf(buffer + pos, MAX_SIZE - pos, fmt, args);
+        int written = npf_vsnprintf(buffer + pos, MAX_SIZE - pos, fmt, args);
         va_end(args);
 
         if (written > 0) {

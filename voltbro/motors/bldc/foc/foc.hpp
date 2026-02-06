@@ -14,21 +14,26 @@
 #include "../bldc.h"
 #include "voltbro/math/regulators/pid.hpp"
 
-
+#define USE_CALIBRATION_ARRAY
 constexpr size_t CALIBRATION_BUFF_SIZE = 1024;
 using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
 using calibration_array_t = const __non_const_calib_array_t;
 
-struct CalibrationData {
-    static constexpr uint32_t TYPE_ID = 0x22ABCDEF;
-    uint32_t type_id;
-    bool was_calibrated = false;
+struct __attribute__((packed)) CalibrationData {
+    static constexpr uint32_t TYPE_ID = 0x99ABCDEF;
+    bool was_calibrated;
     bool is_encoder_inverted;
     uint16_t ppair_counter;
-    uint16_t meas_elec_offset;
+    int meas_elec_offset;
+    uint32_t type_id = 0;
 #ifdef USE_CALIBRATION_ARRAY
     __non_const_calib_array_t calibration_array;
 #endif
+
+    CalibrationData() {
+        reset();
+        type_id = 0;  // to distinguish between uninitialized and reset data
+    }
 
     void reset() {
         type_id = TYPE_ID;
@@ -76,12 +81,11 @@ protected:
 
     void apply_kalman();
     void update_angle();
+    virtual void update_shaft_angle();
 
     void set_windings_calibration(float current_angle);
-    float reset_to_zero(float start_angle, float d_delta);
-    bool check_if_inverted(float start_angle, float d_delta);
 public:
-    virtual void calibrate(CalibrationData& calibration_data);
+    virtual void calibrate(CalibrationData& calibration_data, std::byte* additional_buffer);
     void apply_calibration(CalibrationData& calibration_data) {
         // Replace config parameters with the ones loaded from EEPROM
         // Very ugly hack, but it will work for now

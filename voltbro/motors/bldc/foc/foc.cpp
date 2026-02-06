@@ -36,12 +36,31 @@ struct KalmanProfile {
 static volatile KalmanProfile kalman_profile;
 #endif
 
+#if defined(DEBUG) || defined(MONITOR)
+#define IS_GLOBAL_CONTROL_VARIABLES
+volatile float I_D = 0;
+volatile float I_Q = 0;
+static float V_d, V_q;
+volatile float i_q_error, i_d_error;
+float d_response, q_response, i_q_set;
+volatile float control_error_glob = 0;
+volatile float controller_response_glob = 0;
+volatile float value_foc_p = 0;
+volatile float value_foc_v = 0;
+volatile float value_foc_p_kp = 0;
+volatile float value_foc_v_kp = 0;
+volatile float value_foc_t = 0;
+volatile encoder_data raw_value = 0;
+#endif
 
 void FOC::update_angle() {
     encoder.update_value();
 
-    encoder_data raw_value = encoder.get_value();
-    int offset_value = (int)raw_value + encoder.electric_offset;  // + lookup_table[raw_value >> 5]
+    #ifndef IS_GLOBAL_CONTROL_VARIABLES
+    encoder_data raw_value;
+    #endif
+    raw_value = encoder.get_value();
+    int offset_value = (int)raw_value - encoder.electric_offset;  // + lookup_table[raw_value >> 3]
     static const float cpr_offset = (float)encoder.CPR / (2.0f * drive_info.common.ppairs);
     offset_value -= cpr_offset;
     if(offset_value > (encoder.CPR - 1)) {
@@ -113,6 +132,14 @@ void FOC::apply_kalman() {
     elec_angle = (float)drive_info.common.ppairs * mfmod(nTh, ab);
     shaft_velocity = nW / drive_info.common.gear_ratio;
 
+    prev_angle = nTh;
+#ifdef FOC_PROFILE
+    kalman_profile.end = DWT->CYCCNT - t_start;
+    kalman_profile.total = DWT->CYCCNT - start_total;
+#endif
+}
+
+void FOC::update_shaft_angle() {
     static float prev_elec_angle = elec_angle;
     static int32_t elec_turns = 0;
     float filtered_travel = elec_angle - prev_elec_angle;
@@ -124,31 +151,7 @@ void FOC::apply_kalman() {
     }
     float elec_unwrapped = (float)elec_turns * pi2 + elec_angle;
     shaft_angle = elec_unwrapped / ( (float)drive_info.common.ppairs * drive_info.common.gear_ratio );
-    //shaft_angle = (float)elec_turns * pi2 / (float)drive_info.common.ppairs + nTh / drive_info.common.gear_ratio;
-
-    prev_angle = nTh;
-#ifdef FOC_PROFILE
-    kalman_profile.end = DWT->CYCCNT - t_start;
-    kalman_profile.total = DWT->CYCCNT - start_total;
-#endif
 }
-
-#if defined(DEBUG) || defined(MONITOR)
-#define IS_GLOBAL_CONTROL_VARIABLES
-volatile float I_D = 0;
-volatile float I_Q = 0;
-static float V_d, V_q;
-volatile float i_q_error, i_d_error;
-float d_response, q_response, i_q_set;
-volatile float control_error_glob = 0;
-volatile float controller_response_glob = 0;
-volatile float value_foc_p = 0;
-volatile float value_foc_v = 0;
-volatile float value_foc_p_kp = 0;
-volatile float value_foc_v_kp = 0;
-volatile float value_foc_t = 0;
-#endif
-
 
 void FOC::update_sensors() {
 #ifdef FOC_PROFILE
@@ -166,6 +169,7 @@ void FOC::update_sensors() {
     t_start = DWT->CYCCNT;
 #endif
     apply_kalman();
+    update_shaft_angle();
 #ifdef FOC_PROFILE
     sensors_profile.kalman = DWT->CYCCNT - t_start;
     sensors_profile.total = DWT->CYCCNT - start_total;
@@ -227,11 +231,11 @@ void FOC::update() {
     const float gear_ratio_f = static_cast<float>(drive_info.common.gear_ratio);
     const float busV = inverter.get_busV();
 
-    shaft_torque = -I_Q * drive_info.torque_const * gear_ratio_f;
+    shaft_torque = I_Q * drive_info.torque_const * gear_ratio_f;
 
     if (point_type == SetPointType::VOLTAGE) {
         V_d = 0;
-        V_q = -target;
+        V_q = target;
     }
     else {
         #ifndef IS_GLOBAL_CONTROL_VARIABLES
@@ -254,14 +258,14 @@ void FOC::update() {
             value_foc_v_kp = foc_target.velocity_kp;
             value_foc_t = foc_target.torque;
             #endif
-            i_q_set = -1.0f / drive_info.torque_const * (
+            i_q_set = 1.0f / drive_info.torque_const * (
                 foc_target.angle_kp * (foc_target.angle - get_angle()) +
                 foc_target.velocity_kp * (foc_target.velocity - shaft_velocity) +
                 (foc_target.torque / gear_ratio_f)
             );
         }
         else if (point_type == SetPointType::TORQUE) {
-            i_q_set = -target / drive_info.torque_const / gear_ratio_f;
+            i_q_set = target / drive_info.torque_const / gear_ratio_f;
         }
         else {
             float control_error = 0;
@@ -276,7 +280,7 @@ void FOC::update() {
             control_error_glob = control_error;
             controller_response_glob = controller_response;
             #endif
-            i_q_set = -controller_response;
+            i_q_set = controller_response;
         }
 
         const float abs_max_current_from_torque = (drive_info.max_torque / drive_info.torque_const / gear_ratio_f);
