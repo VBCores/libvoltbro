@@ -85,7 +85,7 @@ protected:
 
     void set_windings_calibration(float current_angle);
 public:
-    virtual void calibrate(CalibrationData& calibration_data, std::byte* additional_buffer);
+    virtual void calibrate(CalibrationData& calibration_data, std::byte* additional_buffer, size_t buffer_size);
     void apply_calibration(CalibrationData& calibration_data) {
         // Replace config parameters with the ones loaded from EEPROM
         // Very ugly hack, but it will work for now

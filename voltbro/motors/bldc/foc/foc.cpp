@@ -60,7 +60,10 @@ void FOC::update_angle() {
     encoder_data raw_value;
     #endif
     raw_value = encoder.get_value();
-    int offset_value = (int)raw_value - encoder.electric_offset;  // + lookup_table[raw_value >> 3]
+    int offset_value = (int)raw_value - encoder.electric_offset;
+    if (lookup_table != nullptr) {
+        offset_value -= (*lookup_table)[raw_value >> 4];
+    }
     static const float cpr_offset = (float)encoder.CPR / (2.0f * drive_info.common.ppairs);
     offset_value -= cpr_offset;
     if(offset_value > (encoder.CPR - 1)) {
