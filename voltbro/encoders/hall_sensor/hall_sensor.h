@@ -20,10 +20,14 @@ enum class EncoderStep: uint8_t {
     AC = 3
 };
 
+constexpr uint8_t NONE_UINT8 = std::numeric_limits<uint8_t>::max();
+constexpr uint16_t NONE_UINT16 = std::numeric_limits<uint16_t>::max();
+
 class HallSensor: public GenericEncoder {
 public:
     using HallSequence = std::array<HallPhase, 3>;
 private:
+
     const bool IS_EXTI_TRUSTED;
 
     int state_1;
@@ -32,7 +36,7 @@ private:
     int8_t increment;
     EncoderStep step;
     int8_t direction = 0;
-    int8_t last_activated = -1;
+    uint8_t last_activated = NONE_UINT8;
     const GPIO_TypeDef* pin_1_gpiox;
     const GPIO_TypeDef* pin_2_gpiox;
     const GPIO_TypeDef* pin_3_gpiox;
@@ -63,7 +67,7 @@ public:
     );
 
     EncoderStep get_step() const { return step; }
-    bool handle_hall_channel(pin channel = (uint16_t)-1);
+    bool handle_hall_channel(pin channel = NONE_UINT16);
 
     void update_value() override {}
     inline encoder_data get_value() const override {
