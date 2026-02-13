@@ -237,7 +237,7 @@ public:
         EEPROM& eeprom,
         std::function<void(void)> turn_on,
         std::function<void(void)> turn_off
-    ): huart(huart), eeprom(eeprom), turn_on(turn_on), turn_off(turn_off) {}
+    ): turn_on(turn_on), turn_off(turn_off), huart(huart), eeprom(eeprom) {}
 
     ConfigT& get_config() {
         return config_data;
@@ -274,6 +274,9 @@ public:
             case FDCANNominalBaud::KHz1000:
                 return 1;
         }
+        // TODO, NOTE: seems that due to ConfigT being a template, compiler can't correctly track this enum
+        //             but not sure - investigate later?
+        __builtin_unreachable();
     }
     uint8_t get_data_prescaler()  const {
         switch (config_data.fdcan_data_baud) {
@@ -286,6 +289,9 @@ public:
             case FDCANDataBaud::KHz8000:
                 return 1;
         }
+        // TODO, NOTE: seems that due to ConfigT being a template, compiler can't correctly track this enum
+        //             but not sure - investigate later?
+        __builtin_unreachable();
     }
     bool is_app_running() const {
         return app_state == AppState::RUNNING;

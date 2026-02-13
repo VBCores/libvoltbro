@@ -159,7 +159,7 @@ protected:
             return;
         }
 
-        #pragma region ENCODER_PROGRAMMING
+        //#pragma region ENCODER_PROGRAMMING
         LL_SPI_Enable(SPI3);
 
         HAL_Delay(20);
@@ -197,7 +197,7 @@ protected:
 
         transmit_command(EXIT_SRV_MODE_CMD);
 
-        #pragma endregion
+        //#pragma endregion
 
         state.was_programmed = true;
         HAL_IMPORTANT(eeprom.write<InductiveSensor::State>(&state, state_location));
@@ -276,7 +276,7 @@ public:
             induct_comm_phase = true;
         } else {
             // Lower 16 bits
-            uint16_t tx_lower = (uint16_t)(read_pos_cmd);
+            //uint16_t tx_lower = (uint16_t)(read_pos_cmd);
             //uint16_t rx_lower = 0;
             //spi_transmit_only(tx_lower);
             //HAL_SPI_TransmitReceive(hspi, (uint8_t*)&tx_lower, (uint8_t*)&rx_lower, 1, 1000);

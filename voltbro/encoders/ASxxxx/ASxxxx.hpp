@@ -83,8 +83,8 @@ public:
         bool is_inverted = false,
         encoder_data electric_offset = 0
     ):
-        SPIMixin(spi),
         GenericEncoder(CPR, is_inverted, false, electric_offset),
+        SPIMixin(spi),
         spi_ss(std::move(spi_ss))
     {
         value = (encoder_data)-1;

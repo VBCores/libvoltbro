@@ -53,7 +53,7 @@ public:
         I2C_HandleTypeDef* i2c,
         uint64_t page_size = 64,
         uint16_t mem_address_size = I2C_MEMADD_SIZE_16BIT
-    ): i2c(i2c), page_size(page_size), mem_address_size(mem_address_size) {};
+    ): page_size(page_size), mem_address_size(mem_address_size), i2c(i2c) {};
 
     bool is_connected(void) {
         return HAL_I2C_IsDeviceReady(

@@ -15,12 +15,12 @@
 #include "voltbro/math/regulators/pid.hpp"
 
 #define USE_CALIBRATION_ARRAY
-constexpr size_t CALIBRATION_BUFF_SIZE = 1024;
+constexpr size_t CALIBRATION_BUFF_SIZE = 2048;
 using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
 using calibration_array_t = const __non_const_calib_array_t;
 
 struct __attribute__((packed)) CalibrationData {
-    static constexpr uint32_t TYPE_ID = 0x99ABCDEF;
+    static constexpr uint32_t TYPE_ID = 0x89ABCDEF;
     bool was_calibrated;
     bool is_encoder_inverted;
     uint16_t ppair_counter;
@@ -67,17 +67,17 @@ struct KalmanConfig {
  */
 class FOC: public BLDCController  {
 protected:
-    FOCTarget foc_target;
-    GenericEncoder& encoder;
-    PIDRegulator q_reg;
-    PIDRegulator d_reg;
-    PIDRegulator control_reg = PIDRegulator();
-    const KalmanConfig kalman_config;
     float T;
     float raw_elec_angle = 0;
     float elec_angle = 0;
     float I_Q = 0;
     calibration_array_t* lookup_table = nullptr;
+    GenericEncoder& encoder;
+    const KalmanConfig kalman_config;
+    FOCTarget foc_target;
+    PIDRegulator q_reg;
+    PIDRegulator d_reg;
+    PIDRegulator control_reg = PIDRegulator();
 
     void apply_kalman();
     void update_angle();
@@ -91,7 +91,11 @@ public:
         // Very ugly hack, but it will work for now
         const_cast<int&>(encoder.electric_offset) = calibration_data.meas_elec_offset;
 #ifdef USE_CALIBRATION_ARRAY
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+        // TODO: verify that this is safe, but it works so probably fine?
         lookup_table = &(calibration_data.calibration_array);
+        #pragma GCC diagnostic pop
 #endif
         const_cast<bool&>(encoder.is_inverted) = calibration_data.is_encoder_inverted;
     }
@@ -113,11 +117,11 @@ public:
             htim,
             inverter
         ),
-        encoder(encoder),
         T(T),
+        encoder(encoder),
+        kalman_config(std::move(kalman_config)),
         q_reg(std::move(q_config)),
-        d_reg(std::move(d_config)),
-        kalman_config(std::move(kalman_config))
+        d_reg(std::move(d_config))
         {}
 
     float get_electric_angle() {

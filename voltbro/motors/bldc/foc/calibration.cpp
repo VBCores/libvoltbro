@@ -58,7 +58,7 @@ public:
         return (*container_ptr)[normalize_index(idx)];
     }
 
-    const Container* const get_container() const {
+    const Container* get_container() const {
         return container_ptr;
      }
 };
@@ -98,7 +98,7 @@ void FOC::calibrate(CalibrationData& calibration_data, std::byte* additional_buf
         }
     }
 
-#pragma region Electrical Offset
+//#pragma region Electrical Offset
     const int ppairs = drive_info.common.ppairs;
     const int samples_count = ppairs * 2;
 #ifdef MONITOR
@@ -208,12 +208,16 @@ void FOC::calibrate(CalibrationData& calibration_data, std::byte* additional_buf
             Error_Handler(); // Calibration failed
         }
     }
-#pragma endregion
+//#pragma endregion
 
     return_to_zero();
 
-#pragma region Curve Sampling
+//#pragma region Curve Sampling
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+    // TODO: verify that this is safe, but it works so probably fine?
     __non_const_calib_array_t* fwd_calibration_array = &calibration_data.calibration_array;
+    #pragma GCC diagnostic pop
 
     // No big allocation is done here, just boundary and alignment checks
     auto allocate_object = [&zero_pwm]<typename T>(void* buffer_, size_t buffer_size) {
@@ -253,7 +257,7 @@ void FOC::calibrate(CalibrationData& calibration_data, std::byte* additional_buf
             offset_encoder_value -= encoder.CPR;
         }
 
-        size_t idx = static_cast<size_t>(offset_encoder_value >> 4);
+        size_t idx = static_cast<size_t>(offset_encoder_value >> 3);
         if (idx >= arr->size()) {
             Error_Handler(); // Should never happen if buffer size is correct
         }
@@ -311,13 +315,14 @@ void FOC::calibrate(CalibrationData& calibration_data, std::byte* additional_buf
             }
         } else if (fwd != SENTINEL_EMPTY) {
             final_array[i] = fwd;
-            processing_stats.soft_gaps_n += 1;
+            // Here and further: <'++'/'+='/... expression of 'volatile'-qualified type is deprecated> - C++20
+            processing_stats.soft_gaps_n = processing_stats.soft_gaps_n + 1;
         } else if (bwd != SENTINEL_EMPTY) {
             final_array[i] = bwd;
-            processing_stats.soft_gaps_n += 1;
+            processing_stats.soft_gaps_n = processing_stats.soft_gaps_n + 1;
         } else {
             final_array[i] = SENTINEL_EMPTY; // Still a gap, mark for later
-            processing_stats.hard_gaps_n += 1;
+            processing_stats.hard_gaps_n = processing_stats.hard_gaps_n + 1;
         }
     }
     processing_stats.average_fwd_bwd_discrepancy = \
@@ -393,7 +398,7 @@ void FOC::calibrate(CalibrationData& calibration_data, std::byte* additional_buf
         }
     }
 
-#pragma endregion
+//#pragma endregion
 
     asm volatile("nop");  // debug breakpoint
 }

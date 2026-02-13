@@ -62,7 +62,7 @@ void FOC::update_angle() {
     raw_value = encoder.get_value();
     int offset_value = (int)raw_value - encoder.electric_offset;
     if (lookup_table != nullptr) {
-        offset_value -= (*lookup_table)[raw_value >> 4];
+        offset_value -= (*lookup_table)[raw_value >> 3];
     }
     static const float cpr_offset = (float)encoder.CPR / (2.0f * drive_info.common.ppairs);
     offset_value -= cpr_offset;
@@ -99,7 +99,7 @@ void FOC::apply_kalman() {
     t_start = DWT->CYCCNT;
 #endif
 
-#pragma region KALMAN_PAPER
+//#pragma region KALMAN_PAPER
     /*
      * Source: "A digital speed filter for motion control drives
      *          with a low resolution position encoder",
@@ -125,7 +125,7 @@ void FOC::apply_kalman() {
     Th_hat = nTh + kalman_config.g1 * travel;
     W_hat = nW + kalman_config.g2 * travel;
     E_hat = nE + kalman_config.g3 * travel;
-#pragma endregion KALMAN_PAPER
+//#pragma endregion KALMAN_PAPER
 #ifdef FOC_PROFILE
     kalman_profile.mid = DWT->CYCCNT - t_start;
     t_start = DWT->CYCCNT;
@@ -263,7 +263,7 @@ void FOC::update() {
             #endif
             i_q_set = 1.0f / drive_info.torque_const * (
                 foc_target.angle_kp * (foc_target.angle - get_angle()) +
-                foc_target.velocity_kp * (foc_target.velocity - shaft_velocity) +
+                foc_target.velocity_kp * (foc_target.velocity - get_velocity()) +
                 (foc_target.torque / gear_ratio_f)
             );
         }
