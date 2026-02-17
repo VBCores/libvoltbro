@@ -13,26 +13,26 @@
 #include <memory>
 #include <cstring>
 
-static constexpr size_t MAX_SIZE = 512;
-extern char buffer[MAX_SIZE];
-
-// TODO: check that buffer is not used by 2 accumulators at the same time
 // NOTE: This is a simple implementation, it can be much improved
 class UARTResponseAccumulator {
 private:
+    const size_t max_size;
     size_t pos;
+    char* buffer;
     UART_HandleTypeDef* huart;
 public:
-    UARTResponseAccumulator(UART_HandleTypeDef* huart): pos(0), huart(huart) {}
+    UARTResponseAccumulator(UART_HandleTypeDef* huart, char* buffer, size_t max_size) :
+        max_size(max_size), pos(0), buffer(buffer), huart(huart) {}
 
     ~UARTResponseAccumulator() {
         if (pos > 0) {
             HAL_UART_Transmit_DMA(huart, reinterpret_cast<uint8_t*>(buffer), pos);
         }
+
     }
 
     void append(const char* fmt, ...) {
-        if (pos >= MAX_SIZE) return;
+        if (pos >= max_size) return;
         if (pos > 0) {
             // Overwrite the last \0
             pos--;
@@ -40,7 +40,7 @@ public:
 
         va_list args;
         va_start(args, fmt);
-        int written = npf_vsnprintf(buffer + pos, MAX_SIZE - pos, fmt, args);
+        int written = npf_vsnprintf(buffer + pos, max_size - pos, fmt, args);
         va_end(args);
 
         if (written > 0) {
@@ -77,14 +77,17 @@ static constexpr std::string NODE_ID_PARAM = "node_id";
 static constexpr std::string FDCAN_DATA_PARAM = "data_baud";
 static constexpr std::string FDCAN_NOMINAL_PARAM = "nominal_baud";
 
-struct BaseConfigData {
-    static constexpr uint32_t TYPE_ID = 0x12345678;
-    uint32_t type_id = BaseConfigData::TYPE_ID;
+struct __attribute__((packed)) BaseConfigData {
+    static constexpr uint32_t TYPE_ID = 0x01234567;
     bool was_configured = false;
-
-    CanardNodeID node_id = 11;
+    CanardNodeID node_id = 0;
     FDCANNominalBaud fdcan_nominal_baud = FDCANNominalBaud::KHz1000;
     FDCANDataBaud fdcan_data_baud = FDCANDataBaud::KHz8000;
+    uint32_t type_id = BaseConfigData::TYPE_ID;
+
+    virtual bool are_required_params_set() {
+        return node_id != 0;
+    }
 };
 
 bool get_base_params(BaseConfigData* data, const std::string& param, UARTResponseAccumulator& responses);
@@ -101,9 +104,11 @@ template <typename ConfigT, uint16_t config_location>
 class AppConfigurator {
 protected:
     static constexpr uint16_t UART_RX_BUFFER_SIZE = 32;
+    static constexpr uint16_t UART_TX_BUFFER_SIZE = 512;
     const std::function<void(void)> turn_on;
     const std::function<void(void)> turn_off;
     char uart_rx_buffer[UART_RX_BUFFER_SIZE + 1];
+    char uart_tx_buffer[UART_TX_BUFFER_SIZE];
     AppState app_state = AppState::INIT;
     ConfigT config_data;
 
@@ -118,7 +123,7 @@ protected:
     }
 
     void load_config() {
-        UARTResponseAccumulator responses(huart);
+        UARTResponseAccumulator responses(huart, uart_tx_buffer, UART_TX_BUFFER_SIZE);
 
         auto status = eeprom.read<ConfigT>(&config_data, config_location);
         if (status != HAL_OK) {
@@ -169,7 +174,7 @@ protected:
     }
 
     void process_command(std::string command) {
-        UARTResponseAccumulator responses(huart);
+        UARTResponseAccumulator responses(huart, uart_tx_buffer, UART_TX_BUFFER_SIZE);
 
         command.erase(command.find_last_not_of(" \t\n\r") + 1);
         if (command.size() == 0) {

@@ -7,7 +7,7 @@
 #include <cstdint>
 
 
-#ifdef IS_GLOBAL_CONTROL_VARIABLES
+#ifdef MONITOR
 static volatile float I_A_glob, I_B_glob, I_C_glob, busV_glob;
 #endif
 
@@ -77,7 +77,7 @@ public:
         I_C = ((3.3f * (float)ADC_buffer[3] / (16.0f * 4096.0f)) - I_C_offset) /
               (shunt_res * op_amp_gain);
         busV = 16.0f * 3.3f * (float)ADC_buffer[0] / (16.0f * 4096.0f);  // drivers input voltage
-        #ifdef IS_GLOBAL_CONTROL_VARIABLES
+        #ifdef MONITOR
             I_A_glob = I_A;
             I_B_glob = I_B;
             I_C_glob = I_C;

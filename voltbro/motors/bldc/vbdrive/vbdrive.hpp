@@ -297,7 +297,7 @@ protected:
 public:
     VBDrive(
         float T,
-        KalmanConfig&& kalman_config,
+        FiltersConfig&& filters_config,
         PIDConfig&& q_config,
         PIDConfig&& d_config,
         const DriveLimits& drive_limits,
@@ -309,7 +309,7 @@ public:
     ):
         FOC(
             T,
-            std::move(kalman_config),
+            std::move(filters_config),
             std::move(q_config),
             std::move(d_config),
             drive_limits,

@@ -50,7 +50,7 @@ public:
         GenericEncoder& encoder,
         bool is_using_brake = false
     ):
-        AbstractMotor(),  // calls correct check_limits via CRTP
+        AbstractMotor(),
         config(driver_config),
         encoder(encoder),
         is_using_brake(is_using_brake)

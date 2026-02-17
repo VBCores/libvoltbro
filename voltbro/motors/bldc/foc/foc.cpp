@@ -36,8 +36,7 @@ struct KalmanProfile {
 static volatile KalmanProfile kalman_profile;
 #endif
 
-#if defined(DEBUG) || defined(MONITOR)
-#define IS_GLOBAL_CONTROL_VARIABLES
+#if defined(MONITOR)
 volatile float I_D = 0;
 volatile float I_Q = 0;
 static float V_d, V_q;
@@ -56,7 +55,7 @@ volatile encoder_data raw_value = 0;
 void FOC::update_angle() {
     encoder.update_value();
 
-    #ifndef IS_GLOBAL_CONTROL_VARIABLES
+    #ifndef MONITOR
     encoder_data raw_value;
     #endif
     raw_value = encoder.get_value();
@@ -112,8 +111,8 @@ void FOC::apply_kalman() {
     static float E_hat = 0.0f; // Epsilon hat, rad/s^2
 
     // (11)
-    float nTh = Th_hat + W_hat * T + (E_hat + kalman_config.expected_a) * (T*T) / 2.0f;
-    float nW = W_hat + (E_hat + kalman_config.expected_a) * T;
+    float nTh = Th_hat + W_hat * T + (E_hat + filters_config.expected_a) * (T*T) / 2.0f;
+    float nW = W_hat + (E_hat + filters_config.expected_a) * T;
     float nE = E_hat;
 
     nTh = mfmod(nTh, pi2);
@@ -122,9 +121,9 @@ void FOC::apply_kalman() {
     }
 
     // (19)
-    Th_hat = nTh + kalman_config.g1 * travel;
-    W_hat = nW + kalman_config.g2 * travel;
-    E_hat = nE + kalman_config.g3 * travel;
+    Th_hat = nTh + filters_config.g1 * travel;
+    W_hat = nW + filters_config.g2 * travel;
+    E_hat = nE + filters_config.g3 * travel;
 //#pragma endregion KALMAN_PAPER
 #ifdef FOC_PROFILE
     kalman_profile.mid = DWT->CYCCNT - t_start;
@@ -210,7 +209,7 @@ void FOC::update() {
     elec_angles.c = (float32_t)elec_angles_q31.cosOutput / 2147483648.0f;  // convert to float from q31
     elec_angles.s = (float32_t)elec_angles_q31.sinOutput / 2147483648.0f;  // convert to float from q31
 
-    #ifndef IS_GLOBAL_CONTROL_VARIABLES
+    #ifndef MONITOR
     float V_d, V_q;
     static float I_D = 0;
     #endif
@@ -224,9 +223,8 @@ void FOC::update() {
     const float diff_D = I_D - tempD;
     const float diff_Q = I_Q - tempQ;
 
-    constexpr float LPF_COEFFICIENT = 0.0925f;  // Low-pass filter coefficient
-    I_D = I_D - (LPF_COEFFICIENT * diff_D);
-    I_Q = I_Q - (LPF_COEFFICIENT * diff_Q);
+    I_D = I_D - (filters_config.I_lpf_coefficient * diff_D);
+    I_Q = I_Q - (filters_config.I_lpf_coefficient * diff_Q);
     #ifdef FOC_PROFILE
     foc_profile.currents = DWT->CYCCNT - t_start;
     #endif
@@ -241,7 +239,7 @@ void FOC::update() {
         V_q = target;
     }
     else {
-        #ifndef IS_GLOBAL_CONTROL_VARIABLES
+        #ifndef MONITOR
         float i_d_error, i_q_error, d_response, q_response, i_q_set;
         #endif
 
@@ -279,7 +277,7 @@ void FOC::update() {
                 control_error = target - shaft_velocity;
             }
             float controller_response = control_reg.regulation(control_error, T, false);
-            #ifdef IS_GLOBAL_CONTROL_VARIABLES
+            #ifdef MONITOR
             control_error_glob = control_error;
             controller_response_glob = controller_response;
             #endif

@@ -47,8 +47,6 @@ private:
     }
 
     uint16_t read(bool recieve_immediate = false) {
-        //uint16_t command = get_command(reg);
-
         start_transaction();
         uint16_t response = spi_transmit_command_receive(to_underlying(ASxxxxParams::READ_MESSAGE));
         end_transaction();
@@ -91,7 +89,7 @@ public:
     };
 
     void start_streaming() {
-        // skip first (empty) SPI response, without sending NOP
+        // Warm up encoder
         for (size_t i = 0; i < 5; i++) {
             start_transaction();
             spi_transmit_only(get_command(ASxxxxParams::REG_ANGLE));

@@ -20,7 +20,7 @@ using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
 using calibration_array_t = const __non_const_calib_array_t;
 
 struct __attribute__((packed)) CalibrationData {
-    static constexpr uint32_t TYPE_ID = 0x89ABCDEF;
+    static constexpr uint32_t TYPE_ID = 0x99ABCDEF;
     bool was_calibrated;
     bool is_encoder_inverted;
     uint16_t ppair_counter;
@@ -55,11 +55,12 @@ struct FOCTarget {
     float velocity_kp = 0.0f;
 };
 
-struct KalmanConfig {
+struct FiltersConfig {
     float expected_a;
     float g1;
     float g2;
     float g3;
+    float I_lpf_coefficient;
 };
 
 /**
@@ -73,7 +74,7 @@ protected:
     float I_Q = 0;
     calibration_array_t* lookup_table = nullptr;
     GenericEncoder& encoder;
-    const KalmanConfig kalman_config;
+    const FiltersConfig filters_config;
     FOCTarget foc_target;
     PIDRegulator q_reg;
     PIDRegulator d_reg;
@@ -102,7 +103,7 @@ public:
 
     FOC(
         float T,
-        KalmanConfig&& kalman_config,
+        FiltersConfig&& filters_config,
         PIDConfig&& q_config,
         PIDConfig&& d_config,
         const DriveLimits& drive_limits,
@@ -119,7 +120,7 @@ public:
         ),
         T(T),
         encoder(encoder),
-        kalman_config(std::move(kalman_config)),
+        filters_config(std::move(filters_config)),
         q_reg(std::move(q_config)),
         d_reg(std::move(d_config))
         {}

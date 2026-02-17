@@ -3,8 +3,6 @@
 #include "stm32g4xx_hal.h"
 #if defined(HAL_UART_MODULE_ENABLED)
 
-char buffer[MAX_SIZE];
-
 bool safe_stoi(const std::string& str, int& out_val) {
     if (str.empty()) return false;
 
