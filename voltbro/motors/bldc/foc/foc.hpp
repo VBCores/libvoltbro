@@ -132,9 +132,17 @@ public:
         return I_Q;
     }
 
-    void set_foc_point(FOCTarget&& target) {
+    bool set_foc_point(FOCTarget&& target) {
+        if (
+            !is_torque_target_valid(target.torque) ||
+            !is_angle_target_valid(target.angle) ||
+            !is_velocity_target_valid(target.velocity)
+        ) {
+            return false;
+        }
         point_type = SetPointType::UNIVERSAL;
         foc_target = std::move(target);
+        return true;
     }
     void update_q_config(PIDConfig&& new_config) {
         q_reg.update_config(std::move(new_config));

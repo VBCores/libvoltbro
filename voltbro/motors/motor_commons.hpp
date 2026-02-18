@@ -68,6 +68,10 @@ public:
         }
         return true;
     }
+
+    const DriveLimits& get_limits() const {
+        return drive_limits;
+    }
 };
 
 inline float calculate_angle_simple(
