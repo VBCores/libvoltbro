@@ -103,11 +103,9 @@ bool set_base_params(
 template <typename ConfigT, uint16_t config_location>
 class AppConfigurator {
 protected:
-    static constexpr uint16_t UART_RX_BUFFER_SIZE = 32;
     static constexpr uint16_t UART_TX_BUFFER_SIZE = 512;
     const std::function<void(void)> turn_on;
     const std::function<void(void)> turn_off;
-    char uart_rx_buffer[UART_RX_BUFFER_SIZE + 1];
     char uart_tx_buffer[UART_TX_BUFFER_SIZE];
     AppState app_state = AppState::INIT;
     ConfigT config_data;
@@ -149,20 +147,6 @@ protected:
         }
     }
 
-    void start_uart_recv_it() {
-        std::memset(uart_rx_buffer, '\0', UART_RX_BUFFER_SIZE + 1);
-        /*
-        / If TX uses DMA, next line is not needed,
-        / if TX is IT or direct, next line is required due to bug in HAL.
-        / Kept here so I don't forget
-        HAL_UART_Abort_IT(&huart2);
-        */
-        auto status = HAL_UARTEx_ReceiveToIdle_DMA(huart, reinterpret_cast<uint8_t*>(uart_rx_buffer), UART_RX_BUFFER_SIZE);
-        if (status != HAL_OK) {
-            // TODO
-        }
-    }
-
     void enable_config_mode() {
         app_state = AppState::CONFIG;
         turn_off();
@@ -173,7 +157,8 @@ protected:
         turn_on();
     }
 
-    void process_command(std::string command) {
+public:
+    void process_command(std::string& command) {
         UARTResponseAccumulator responses(huart, uart_tx_buffer, UART_TX_BUFFER_SIZE);
 
         command.erase(command.find_last_not_of(" \t\n\r") + 1);
@@ -236,7 +221,7 @@ protected:
             responses.append("Saved config\n\r");
         }
     }
-public:
+
     AppConfigurator(
         UART_HandleTypeDef* huart,
         EEPROM& eeprom,
@@ -250,17 +235,6 @@ public:
 
     void init() {
         load_config();
-        start_uart_recv_it();
-    }
-
-    void handle_uart_event(UART_HandleTypeDef* incoming_uart, uint16_t size) {
-        if (huart != incoming_uart) {
-            return; // Not the UART we are interested in
-        }
-        uart_rx_buffer[size] = '\0';
-        auto command_string = std::string(uart_rx_buffer);
-        process_command(command_string);
-        start_uart_recv_it();
     }
 
     CanardNodeID get_node_id() const {
