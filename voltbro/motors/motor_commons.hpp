@@ -15,7 +15,6 @@ constexpr float PI = 3.14159265359;
 struct CommonDriverConfig {
     const uint8_t ppairs = 1;
     const uint8_t gear_ratio = 1;
-    const float user_angle_offset = 0.0f;
 };
 
 constexpr float FLOAT_INF = std::numeric_limits<float>::infinity();
@@ -28,8 +27,8 @@ struct DriveLimits {
     float user_speed_limit = FLOAT_INF;
     float user_position_lower_limit = -FLOAT_INF;
     float user_position_upper_limit = FLOAT_INF;
+    float user_angle_offset = 0.0f;
 };
-
 
 class AbstractMotor {
 protected:

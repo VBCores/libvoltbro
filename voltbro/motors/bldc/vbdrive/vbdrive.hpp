@@ -114,6 +114,7 @@ public:
         }
     };
 protected:
+    encoder_data raw_value = 0;
     static const uint32_t read_pos_cmd = 209;
 
     const uint16_t state_location;
@@ -241,9 +242,12 @@ public:
         return current_speed;
     }
 
+    FORCE_INLINE encoder_data get_raw_value() {
+        return raw_value;
+    }
+
     void update() {
         static bool induct_comm_phase = 0;
-        static uint16_t rx_upper = 0;
 
         spi_cs.reset(); // CS low
 
@@ -251,10 +255,10 @@ public:
             // Upper 16 bits
 
             uint16_t tx_upper = (uint16_t)(read_pos_cmd >> 16);
-            rx_upper = spi_transmit_command_receive(tx_upper);
-            //HAL_SPI_TransmitReceive(hspi, (uint8_t*)&tx_upper, (uint8_t*)&rx_upper, 1, 1000);
+            raw_value = spi_transmit_command_receive(tx_upper);
+            //HAL_SPI_TransmitReceive(hspi, (uint8_t*)&tx_upper, (uint8_t*)&raw_value, 1, 1000);
 
-            float new_angle = pi2 * static_cast<float>(rx_upper) / 65535.0f;
+            float new_angle = pi2 * static_cast<float>(raw_value) / 65535.0f;
             float diff = new_angle - current_angle;
             if (abs(diff) > PI) {
                 if (diff < 0) {
@@ -287,12 +291,23 @@ public:
     }
 };
 
+enum class AngleEncoderType : uint8_t {
+    ROTOR,
+    SHAFT
+};
+
 class VBDrive final: public FOC {
 protected:
+    AngleEncoderType angle_encoder =  AngleEncoderType::ROTOR;
     InductiveSensor& inductive_sensor;
-    /*void update_shaft_angle() override {
-        shaft_angle = inductive_sensor.get_revolutions() * pi2 + inductive_sensor.get_angle();
-    }*/
+    void update_shaft_angle() override {
+        if (angle_encoder == AngleEncoderType::SHAFT) {
+            shaft_angle = inductive_sensor.get_revolutions() * pi2 + inductive_sensor.get_angle();
+        }
+        else {
+            FOC::update_shaft_angle();
+        }
+    }
 
 public:
     VBDrive(
@@ -305,7 +320,8 @@ public:
         TIM_HandleTypeDef* htim,
         AS5047P& encoder,
         VBInverter& inverter,
-        InductiveSensor& inductive_sensor
+        InductiveSensor& inductive_sensor,
+        AngleEncoderType angle_encoder
     ):
         FOC(
             T,
@@ -318,6 +334,7 @@ public:
             encoder,
             inverter
         ),
+        angle_encoder(angle_encoder),
         inductive_sensor(inductive_sensor)
         {}
 
@@ -337,6 +354,14 @@ public:
             iteration += 1;
 
             FOC::update();
+        }
+
+        // for logging
+        encoder_data get_rotor_encoder_value() {
+            return encoder.get_value();
+        }
+        encoder_data get_shaft_encoder_value() {
+            return inductive_sensor.get_raw_value();
         }
 
         HAL_StatusTypeDef init() override {

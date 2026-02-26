@@ -201,6 +201,10 @@ protected:
     }
 
 public:
+    void wait_for_uart() {
+        while (HAL_UART_GetState(huart) == HAL_UART_STATE_BUSY) {}
+    }
+
     StateT::ValueT get_state() {
         return app_state;
     }
@@ -216,11 +220,10 @@ public:
         }
     }
 
-    std::optional<std::tuple<std::string, std::string>> split_parameter(std::string& parameter, UARTResponseAccumulator& responses) {
+    std::optional<std::tuple<std::string, std::string>> split_parameter(std::string& parameter) {
         // Обработка запроса параметра (формат "param_name:?")
         size_t colon_pos = parameter.find(':');
         if (colon_pos == std::string::npos) {
-            responses.append("ERROR: Unknown command\n\r");
             return std::nullopt;
         }
 
@@ -240,31 +243,32 @@ public:
     }
 
     template <StringViewRange Params>
-    void process_parameter(
+    bool process_parameter(
         std::string& parameter,
         UARTResponseAccumulator& responses,
         Params& acceptable_params
     ) {
-        auto values = split_parameter(parameter, responses);
+        auto values = split_parameter(parameter);
         if (!values) {
-            return;
+            return false;
         }
         auto& [param, value] = *values;
         if (std::ranges::find(acceptable_params, param) == std::ranges::end(acceptable_params)) {
             // param is NOT in acceptable_params
-            responses.append("ERROR: Unknown command\n\r");
-            return;
+            return false;
         }
         act_on_parameters(param, value, responses);
+        return true;
     }
 
-    void process_parameter(std::string& parameter, UARTResponseAccumulator& responses) {
-        auto values = split_parameter(parameter, responses);
+    bool process_parameter(std::string& parameter, UARTResponseAccumulator& responses) {
+        auto values = split_parameter(parameter);
         if (!values) {
-            return;
+            return false;
         }
         auto& [param, value] = *values;
         act_on_parameters(param, value, responses);
+        return true;
     }
 
     virtual void process_command(std::string& command, UARTResponseAccumulator& responses) {
@@ -298,7 +302,10 @@ public:
             if (app_state != StateT::CONFIG) {
                 return;
             }
-            process_parameter(command, responses);
+            bool is_processed = process_parameter(command, responses);
+            if (!is_processed) {
+                responses.append("ERROR: Unknown command\n\r");
+            }
             if (config_data.are_required_params_set()) {
                 config_data.was_configured = true;
                 responses.append("All essential parameters set\n\r");

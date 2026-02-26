@@ -203,7 +203,7 @@ public:
         return _is_on;
     }
     FORCE_INLINE float get_angle() const {
-        return shaft_angle + drive_info.common.user_angle_offset;
+        return shaft_angle + drive_limits.user_angle_offset;
     }
     FORCE_INLINE float get_velocity() const {
         return shaft_velocity;
