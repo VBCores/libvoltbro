@@ -125,7 +125,7 @@ public:
         if (result != HAL_OK) {
             return result;
         }
-        LL_SPI_Enable(spi->Instance);
+        __HAL_SPI_ENABLE(spi);
         start_streaming();
         return HAL_OK;
     }
