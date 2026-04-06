@@ -142,6 +142,7 @@ public:
         }
         point_type = SetPointType::UNIVERSAL;
         foc_target = std::move(target);
+        foc_target.torque *= get_direction_multiplier();
         return true;
     }
     void update_q_config(PIDConfig&& new_config) {
