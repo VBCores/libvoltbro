@@ -7,10 +7,11 @@
 #include "stm32g4xx_ll_gpio.h"
 #include "stm32g4xx_ll_spi.h"
 
-#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_CORDIC_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED) && defined(HAL_SPI_MODULE_ENABLED)
+#if defined(HAL_TIM_MODULE_ENABLED) && defined(HAL_CORDIC_MODULE_ENABLED) && defined(HAL_ADC_MODULE_ENABLED) && defined(HAL_SPI_MODULE_ENABLED) && defined(HAL_I2C_MODULE_ENABLED)
 
 #include "../foc/foc.hpp"
 #include <voltbro/encoders/ASxxxx/AS5047P.hpp>
+#include <voltbro/devices/stspin32g4.hpp>
 #include <voltbro/math/dsp/low_pass_filter.hpp>
 #include <voltbro/eeprom/eeprom.hpp>
 #include "voltbro/generics/spi_mixin.hpp"
@@ -114,6 +115,7 @@ public:
         }
     };
 protected:
+    encoder_data raw_value = 0;
     static const uint32_t read_pos_cmd = 209;
 
     const uint16_t state_location;
@@ -241,9 +243,12 @@ public:
         return current_speed;
     }
 
+    FORCE_INLINE encoder_data get_raw_value() {
+        return raw_value;
+    }
+
     void update() {
         static bool induct_comm_phase = 0;
-        static uint16_t rx_upper = 0;
 
         spi_cs.reset(); // CS low
 
@@ -251,10 +256,10 @@ public:
             // Upper 16 bits
 
             uint16_t tx_upper = (uint16_t)(read_pos_cmd >> 16);
-            rx_upper = spi_transmit_command_receive(tx_upper);
-            //HAL_SPI_TransmitReceive(hspi, (uint8_t*)&tx_upper, (uint8_t*)&rx_upper, 1, 1000);
+            raw_value = spi_transmit_command_receive(tx_upper);
+            //HAL_SPI_TransmitReceive(hspi, (uint8_t*)&tx_upper, (uint8_t*)&raw_value, 1, 1000);
 
-            float new_angle = pi2 * static_cast<float>(rx_upper) / 65535.0f;
+            float new_angle = pi2 * static_cast<float>(raw_value) / 65535.0f;
             float diff = new_angle - current_angle;
             if (abs(diff) > PI) {
                 if (diff < 0) {
@@ -287,12 +292,39 @@ public:
     }
 };
 
+enum class AngleEncoderType : uint8_t {
+    ROTOR,
+    SHAFT
+};
+
 class VBDrive final: public FOC {
 protected:
+    static constexpr uint32_t bootstrap_charge_time_ms = 5U;
+
+    AngleEncoderType angle_encoder =  AngleEncoderType::ROTOR;
+    STSPIN32G4& gate_driver;
     InductiveSensor& inductive_sensor;
-    /*void update_shaft_angle() override {
-        shaft_angle = inductive_sensor.get_revolutions() * pi2 + inductive_sensor.get_angle();
-    }*/
+    arm_atomic(uint32_t) bootstrap_charge_deadline_ms = 0;
+
+    FORCE_INLINE bool is_bootstrap_charging(uint32_t now_ms) const {
+        return static_cast<int32_t>(bootstrap_charge_deadline_ms - now_ms) > 0;
+    }
+
+    FORCE_INLINE void force_bootstrap_charge() {
+        DQs[0] = 0;
+        DQs[1] = 0;
+        DQs[2] = 0;
+        set_pwm();
+    }
+
+    void update_shaft_angle() override {
+        if (angle_encoder == AngleEncoderType::SHAFT) {
+            shaft_angle = inductive_sensor.get_revolutions() * pi2 + inductive_sensor.get_angle();
+        }
+        else {
+            FOC::update_shaft_angle();
+        }
+    }
 
 public:
     VBDrive(
@@ -305,7 +337,9 @@ public:
         TIM_HandleTypeDef* htim,
         AS5047P& encoder,
         VBInverter& inverter,
-        InductiveSensor& inductive_sensor
+        STSPIN32G4& gate_driver,
+        InductiveSensor& inductive_sensor,
+        AngleEncoderType angle_encoder
     ):
         FOC(
             T,
@@ -318,6 +352,8 @@ public:
             encoder,
             inverter
         ),
+        angle_encoder(angle_encoder),
+        gate_driver(gate_driver),
         inductive_sensor(inductive_sensor)
         {}
 
@@ -336,7 +372,27 @@ public:
             })
             iteration += 1;
 
+            if (!_is_on) {
+                FOC::update_sensors();
+                return;
+            }
+
+            const uint32_t now_ms = HAL_GetTick();
+            if (is_bootstrap_charging(now_ms)) {
+                FOC::update_sensors();
+                force_bootstrap_charge();
+                return;
+            }
+
             FOC::update();
+        }
+
+        // for logging
+        encoder_data get_rotor_encoder_value() {
+            return encoder.get_value();
+        }
+        encoder_data get_shaft_encoder_value() {
+            return inductive_sensor.get_raw_value();
         }
 
         HAL_StatusTypeDef init() override {
@@ -357,6 +413,42 @@ public:
             inductive_sensor.init();
 
             return result;
+        }
+
+        HAL_StatusTypeDef stop() override {
+            _is_on = false;
+            bootstrap_charge_deadline_ms = 0;
+            __HAL_TIM_MOE_DISABLE(htim);
+
+            HAL_StatusTypeDef result = gate_driver.request_standby();
+            if (result != HAL_OK) {
+                return result;
+            }
+            return HAL_OK;
+        }
+
+        HAL_StatusTypeDef start() override {
+            bootstrap_charge_deadline_ms = HAL_GetTick() + bootstrap_charge_time_ms;
+
+            HAL_StatusTypeDef result = gate_driver.wake();
+            if (result != HAL_OK) {
+                bootstrap_charge_deadline_ms = 0;
+                return result;
+            }
+
+            __HAL_TIM_MOE_ENABLE(htim);
+            force_bootstrap_charge();
+
+            result = gate_driver.clear_faults();
+            if (result != HAL_OK) {
+                __HAL_TIM_MOE_DISABLE(htim);
+                bootstrap_charge_deadline_ms = 0;
+                return result;
+            }
+
+            quit_stall();
+            _is_on = true;
+            return HAL_OK;
         }
 
         FORCE_INLINE void set_pwm() override {

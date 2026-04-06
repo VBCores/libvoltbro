@@ -20,7 +20,7 @@ using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
 using calibration_array_t = const __non_const_calib_array_t;
 
 struct __attribute__((packed)) CalibrationData {
-    static constexpr uint32_t TYPE_ID = 0x99ABCDEF;
+    static constexpr uint32_t TYPE_ID = 0x89ABCDEF;
     bool was_calibrated;
     bool is_encoder_inverted;
     uint16_t ppair_counter;
@@ -132,9 +132,18 @@ public:
         return I_Q;
     }
 
-    void set_foc_point(FOCTarget&& target) {
+    bool set_foc_point(FOCTarget&& target) {
+        if (
+            !is_torque_target_valid(target.torque) ||
+            !is_angle_target_valid(target.angle) ||
+            !is_velocity_target_valid(target.velocity)
+        ) {
+            return false;
+        }
         point_type = SetPointType::UNIVERSAL;
         foc_target = std::move(target);
+        foc_target.torque *= get_direction_multiplier();
+        return true;
     }
     void update_q_config(PIDConfig&& new_config) {
         q_reg.update_config(std::move(new_config));

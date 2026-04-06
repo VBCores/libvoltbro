@@ -400,6 +400,7 @@ void FOC::calibrate(CalibrationData& calibration_data, std::byte* additional_buf
 
 //#pragma endregion
 
+    memset(additional_buffer, 0, buffer_size);
     asm volatile("nop");  // debug breakpoint
 }
 

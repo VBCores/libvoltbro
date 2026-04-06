@@ -12,6 +12,11 @@
 #include <string>
 #include <memory>
 #include <cstring>
+#include <concepts>
+#include <functional>
+#include <map>
+#include <tuple>
+#include <ranges>
 
 // NOTE: This is a simple implementation, it can be much improved
 class UARTResponseAccumulator {
@@ -67,10 +72,23 @@ enum class FDCANDataBaud : uint8_t {
     KHz8000
 };
 
-enum class AppState {
-    INIT,
-    RUNNING,
-    CONFIG
+// NOTE: Turns out even in modern C++ enum class can't be inherited,
+//       so we have to do this ugliness:
+struct AppStateT {
+    arm_atomic(int) v;
+    constexpr explicit AppStateT(int x) : v(x) {}
+    constexpr int underlying() const { return v; }
+
+    friend constexpr bool operator==(const AppStateT& f, const AppStateT& s) {
+        return f.underlying() == s.underlying();
+    };
+};
+
+struct AppState {
+    using ValueT = AppStateT;
+    static constexpr AppStateT INIT{1};
+    static constexpr AppStateT RUNNING{2};
+    static constexpr AppStateT CONFIG{3};
 };
 
 static constexpr std::string NODE_ID_PARAM = "node_id";
@@ -100,16 +118,32 @@ bool set_base_params(
     bool& was_found
 );
 
-template <typename ConfigT, uint16_t config_location>
+template <class R> concept StringViewRange =
+        std::ranges::range<R> &&
+        std::convertible_to<std::ranges::range_reference_t<R>, std::string_view>;
+
+template <std::derived_from<AppState> StateT, typename ConfigT, uint16_t config_location>
 class AppConfigurator {
+public:
+    using ActionsMap = std::map<
+        std::string_view,
+        std::tuple<std::function<bool()>, std::function<bool()>>
+    >;
 protected:
-    static constexpr uint16_t UART_RX_BUFFER_SIZE = 32;
+    const ActionsMap actions{};
+
+    static constexpr std::string_view SAVE_COMMAND = "SAVE";
+    static constexpr std::string_view CONFIG_COMMAND = "CONFIG";
+    static constexpr std::string_view APPLY_COMMAND = "APPLY";
+    static constexpr std::string_view RESET_COMMAND = "RESET";
+
     static constexpr uint16_t UART_TX_BUFFER_SIZE = 512;
     const std::function<void(void)> turn_on;
     const std::function<void(void)> turn_off;
-    char uart_rx_buffer[UART_RX_BUFFER_SIZE + 1];
     char uart_tx_buffer[UART_TX_BUFFER_SIZE];
-    AppState app_state = AppState::INIT;
+
+    bool do_save = false;
+    StateT::ValueT app_state = StateT::INIT;
     ConfigT config_data;
 
     UART_HandleTypeDef* huart;
@@ -129,7 +163,7 @@ protected:
         if (status != HAL_OK) {
             Error_Handler();
         }
-        responses.append("Got config_data type_id: <0x%08lX>\r\n", config_data.type_id);
+        responses.append("Got config_data type_id: <0x%08lX>\r\n\r\n", config_data.type_id);
         config_data.print_self(responses);
 
         if (config_data.type_id != ConfigT::TYPE_ID) {
@@ -144,105 +178,169 @@ protected:
         }
         else {
             turn_on();
-            app_state = AppState::RUNNING;
+            app_state = StateT::RUNNING;
             responses.append("Controller is configured, starting\r\n");
         }
     }
 
-    void start_uart_recv_it() {
-        std::memset(uart_rx_buffer, '\0', UART_RX_BUFFER_SIZE + 1);
-        /*
-        / If TX uses DMA, next line is not needed,
-        / if TX is IT or direct, next line is required due to bug in HAL.
-        / Kept here so I don't forget
-        HAL_UART_Abort_IT(&huart2);
-        */
-        auto status = HAL_UARTEx_ReceiveToIdle_DMA(huart, reinterpret_cast<uint8_t*>(uart_rx_buffer), UART_RX_BUFFER_SIZE);
-        if (status != HAL_OK) {
-            // TODO
-        }
-    }
-
     void enable_config_mode() {
-        app_state = AppState::CONFIG;
+        app_state = StateT::CONFIG;
+        do_save = false;
         turn_off();
     }
 
     void disable_config_mode() {
-        app_state = AppState::RUNNING;
+        app_state = StateT::RUNNING;
+        do_save = false;
         turn_on();
     }
 
-    void process_command(std::string command) {
-        UARTResponseAccumulator responses(huart, uart_tx_buffer, UART_TX_BUFFER_SIZE);
-
+    bool preprocess_command(std::string& command) {
         command.erase(command.find_last_not_of(" \t\n\r") + 1);
-        if (command.size() == 0) {
+        return command.size() != 0;
+    }
+
+public:
+    void wait_for_uart() {
+        while (HAL_UART_GetState(huart) == HAL_UART_STATE_BUSY) {}
+    }
+
+    StateT::ValueT get_state() {
+        return app_state;
+    }
+
+    void set_state(StateT::ValueT state) {
+        app_state = state;
+    }
+
+    void try_persist_config(UARTResponseAccumulator& responses) {
+        if (do_save) {
+            save_config();
+            responses.append("Saved config\n\r");
+        }
+    }
+
+    std::optional<std::tuple<std::string, std::string>> split_parameter(std::string& parameter) {
+        // Обработка запроса параметра (формат "param_name:?")
+        size_t colon_pos = parameter.find(':');
+        if (colon_pos == std::string::npos) {
+            return std::nullopt;
+        }
+
+        std::string param = parameter.substr(0, colon_pos);
+        std::string value = parameter.substr(colon_pos + 1);
+
+        return std::make_tuple(param, value);
+    }
+
+    void act_on_parameters(std::string& param, std::string& value, UARTResponseAccumulator& responses) {
+        if (value == "?") {
+            config_data.get(param, responses);
+        }
+        else {
+            do_save = config_data.set(param, value, responses);
+        }
+    }
+
+    template <StringViewRange Params>
+    bool process_parameter(
+        std::string& parameter,
+        UARTResponseAccumulator& responses,
+        Params& acceptable_params
+    ) {
+        auto values = split_parameter(parameter);
+        if (!values) {
+            return false;
+        }
+        auto& [param, value] = *values;
+        if (std::ranges::find(acceptable_params, param) == std::ranges::end(acceptable_params)) {
+            // param is NOT in acceptable_params
+            return false;
+        }
+        act_on_parameters(param, value, responses);
+        return true;
+    }
+
+    bool process_parameter(std::string& parameter, UARTResponseAccumulator& responses) {
+        auto values = split_parameter(parameter);
+        if (!values) {
+            return false;
+        }
+        auto& [param, value] = *values;
+        act_on_parameters(param, value, responses);
+        return true;
+    }
+
+    virtual void process_command(std::string& command, UARTResponseAccumulator& responses) {
+        if (command == CONFIG_COMMAND) {
+            enable_config_mode();
+            responses.append("CONFIG MODE ENABLED\n\r");
+            return;
+        }
+        if (command == APPLY_COMMAND) {
+            try_persist_config(responses);
+            NVIC_SystemReset();
+        }
+
+        if (app_state != StateT::CONFIG) {
             return;
         }
 
-        bool do_save = false;
-
-        if (command == "START") {
-            enable_config_mode();
-            responses.append("CONFIG MODE ENABLED\n\r");
-        }
-        else if (command == "APPLY") {
-            NVIC_SystemReset();
-        }
-        else if (command == "RESET") {
+        if (command == RESET_COMMAND) {
             responses.append("Setting default config\n\r");
             config_data = ConfigT();
             responses.append("NOTE: config changes not applied! To apply, run APPLY or reset controller\n\r");
             do_save = true;
         }
-        else if (command == "STOP") {
+        else if (command == SAVE_COMMAND) {
+            try_persist_config(responses);
             disable_config_mode();
             responses.append("NOTE: config changes not applied! To apply, run APPLY or reset controller\n\r");
         }
         else {
-            // Если не в режиме конфигурации, игнорируем команды (кроме START)
-            if (app_state != AppState::CONFIG) {
+            // Если не в режиме конфигурации, игнорируем параметры
+            if (app_state != StateT::CONFIG) {
                 return;
             }
-
-            // Обработка запроса параметра (формат "param_name:?")
-            size_t colon_pos = command.find(':');
-            if (colon_pos == std::string::npos) {
+            bool is_processed = process_parameter(command, responses);
+            if (!is_processed) {
                 responses.append("ERROR: Unknown command\n\r");
-                return;
             }
-
-            std::string param = command.substr(0, colon_pos);
-            std::string value = command.substr(colon_pos + 1);
-
-            if (value == "?") {
-                // GET
-                config_data.get(param, responses);
-            }
-            else {
-                // SET
-                do_save = config_data.set(param, value, responses);
-            }
-        }
-
-        if (do_save) {
             if (config_data.are_required_params_set()) {
                 config_data.was_configured = true;
-                responses.append("All essential parameters set, board will start after APPLY\n\r");
+                responses.append("All essential parameters set\n\r");
             }
-
-            save_config();
-            responses.append("Saved config\n\r");
         }
     }
-public:
+
+    void process_command(std::string& command) {
+        if (!preprocess_command(command)) {
+            return;
+        }
+        UARTResponseAccumulator responses(huart, uart_tx_buffer, UART_TX_BUFFER_SIZE);
+
+        if (actions.count(command) == 0) {
+            process_command(command, responses);
+            return;
+        }
+
+        auto& [checker, action] = actions.at(command);
+        if (!checker()) {
+            responses.append("Action conditions not met\n\r");
+            return;
+        }
+
+        bool is_ok = action();
+        responses.append(is_ok ? "Ok\n\r" : "Failed\n\r");
+    }
+
     AppConfigurator(
         UART_HandleTypeDef* huart,
         EEPROM& eeprom,
         std::function<void(void)> turn_on,
-        std::function<void(void)> turn_off
-    ): turn_on(turn_on), turn_off(turn_off), huart(huart), eeprom(eeprom) {}
+        std::function<void(void)> turn_off,
+        ActionsMap&& actions_map
+    ): actions(std::move(actions_map)), turn_on(turn_on), turn_off(turn_off), huart(huart), eeprom(eeprom) {}
 
     ConfigT& get_config() {
         return config_data;
@@ -250,17 +348,6 @@ public:
 
     void init() {
         load_config();
-        start_uart_recv_it();
-    }
-
-    void handle_uart_event(UART_HandleTypeDef* incoming_uart, uint16_t size) {
-        if (huart != incoming_uart) {
-            return; // Not the UART we are interested in
-        }
-        uart_rx_buffer[size] = '\0';
-        auto command_string = std::string(uart_rx_buffer);
-        process_command(command_string);
-        start_uart_recv_it();
     }
 
     CanardNodeID get_node_id() const {
@@ -298,11 +385,17 @@ public:
         //             but not sure - investigate later?
         __builtin_unreachable();
     }
-    bool is_app_running() const {
-        return app_state == AppState::RUNNING;
+
+    virtual bool is_app_running() const {
+        return app_state == StateT::RUNNING;
     }
 
 };
+
+#define CHECK_AND_PRINT_PARAM_ANY(field_name, param_name, specifier) \
+    else if (param == param_name) { \
+        responses.append("%s: "#specifier"\n\r", #field_name, field_name); \
+    }
 
 #define CHECK_AND_PRINT_PARAM_INT(field_name, param_name) \
     else if (param == param_name) { \

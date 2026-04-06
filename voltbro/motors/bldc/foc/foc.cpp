@@ -260,8 +260,10 @@ void FOC::update() {
             value_foc_t = foc_target.torque;
             #endif
             i_q_set = 1.0f / drive_info.torque_const * (
-                foc_target.angle_kp * (foc_target.angle - get_angle()) +
-                foc_target.velocity_kp * (foc_target.velocity - get_velocity()) +
+                get_direction_multiplier() * (
+                    foc_target.angle_kp * (foc_target.angle - get_angle()) +
+                    foc_target.velocity_kp * (foc_target.velocity - get_velocity())
+                ) +
                 (foc_target.torque / gear_ratio_f)
             );
         }
@@ -271,17 +273,17 @@ void FOC::update() {
         else {
             float control_error = 0;
             if (point_type == SetPointType::POSITION) {
-                control_error = target - shaft_angle;
+                control_error = target - get_angle();
             }
             else if (point_type == SetPointType::VELOCITY) {
-                control_error = target - shaft_velocity;
+                control_error = target - get_velocity();
             }
             float controller_response = control_reg.regulation(control_error, T, false);
             #ifdef MONITOR
             control_error_glob = control_error;
             controller_response_glob = controller_response;
             #endif
-            i_q_set = controller_response;
+            i_q_set = controller_response * get_direction_multiplier();
         }
 
         const float abs_max_current_from_torque = (drive_info.max_torque / drive_info.torque_const / gear_ratio_f);
