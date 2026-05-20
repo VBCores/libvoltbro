@@ -122,7 +122,15 @@ public:
         encoder(encoder),
         filters_config(std::move(filters_config)),
         q_reg(std::move(q_config)),
-        d_reg(std::move(d_config))
+        d_reg(std::move(d_config)),
+        control_reg(PIDConfig {
+            .kp = 2.0f,
+            .ki = 0.0f,
+            .kd = 0.0f,
+            .integral_error_lim = 0.0f,
+            .max_output = drive_info.max_current,
+            .min_output = -drive_info.max_current,
+        })
         {}
 
     float get_electric_angle() {
