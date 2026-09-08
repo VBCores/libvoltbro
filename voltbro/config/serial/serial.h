@@ -10,6 +10,9 @@
 #include <nanoprintf.h>
 #include <cstdint>
 #include <string>
+#include <string_view>
+#include <type_traits>
+#include <optional>
 #include <memory>
 #include <cstring>
 #include <concepts>
@@ -122,9 +125,11 @@ template <class R> concept StringViewRange =
         std::ranges::range<R> &&
         std::convertible_to<std::ranges::range_reference_t<R>, std::string_view>;
 
-template <std::derived_from<AppState> StateT, typename ConfigT, uint16_t config_location>
+template <std::derived_from<AppState> StateT, typename ConfigT, uint16_t config_location, typename Text = std::string>
 class AppConfigurator {
 public:
+    // Legacy instantiations retain string& virtual dispatch and owning substrings.
+    using CommandArg = std::conditional_t<std::is_same_v<Text, std::string>, std::string&, Text>;
     using ActionsMap = std::map<
         std::string_view,
         std::tuple<std::function<bool()>, std::function<bool()>>
@@ -195,8 +200,13 @@ protected:
         turn_on();
     }
 
-    bool preprocess_command(std::string& command) {
-        command.erase(command.find_last_not_of(" \t\n\r") + 1);
+    bool preprocess_command(Text& command) {
+        if constexpr (std::is_same_v<Text, std::string>) {
+            command.erase(command.find_last_not_of(" \t\n\r") + 1);
+        } else {
+            const auto end = command.find_last_not_of(" \t\n\r");
+            command.remove_suffix(command.size() - (end + 1));
+        }
         return command.size() != 0;
     }
 
@@ -220,20 +230,20 @@ public:
         }
     }
 
-    std::optional<std::tuple<std::string, std::string>> split_parameter(std::string& parameter) {
+    std::optional<std::tuple<Text, Text>> split_parameter(CommandArg parameter) {
         // Обработка запроса параметра (формат "param_name:?")
         size_t colon_pos = parameter.find(':');
         if (colon_pos == std::string::npos) {
             return std::nullopt;
         }
 
-        std::string param = parameter.substr(0, colon_pos);
-        std::string value = parameter.substr(colon_pos + 1);
+        Text param = parameter.substr(0, colon_pos);
+        Text value = parameter.substr(colon_pos + 1);
 
         return std::make_tuple(param, value);
     }
 
-    void act_on_parameters(std::string& param, std::string& value, UARTResponseAccumulator& responses) {
+    void act_on_parameters(CommandArg param, CommandArg value, UARTResponseAccumulator& responses) {
         if (value == "?") {
             config_data.get(param, responses);
         }
@@ -244,7 +254,7 @@ public:
 
     template <StringViewRange Params>
     bool process_parameter(
-        std::string& parameter,
+        CommandArg parameter,
         UARTResponseAccumulator& responses,
         Params& acceptable_params
     ) {
@@ -261,7 +271,7 @@ public:
         return true;
     }
 
-    bool process_parameter(std::string& parameter, UARTResponseAccumulator& responses) {
+    bool process_parameter(CommandArg parameter, UARTResponseAccumulator& responses) {
         auto values = split_parameter(parameter);
         if (!values) {
             return false;
@@ -271,7 +281,7 @@ public:
         return true;
     }
 
-    virtual void process_command(std::string& command, UARTResponseAccumulator& responses) {
+    virtual void process_command(CommandArg command, UARTResponseAccumulator& responses) {
         if (command == CONFIG_COMMAND) {
             enable_config_mode();
             responses.append("CONFIG MODE ENABLED\n\r");
@@ -313,7 +323,7 @@ public:
         }
     }
 
-    void process_command(std::string& command) {
+    void process_command(CommandArg command) {
         if (!preprocess_command(command)) {
             return;
         }
