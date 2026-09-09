@@ -179,6 +179,25 @@ void FOC::update_sensors() {
 }
 
 
+/** Compute output-shaft torque using position PID or velocity PI with clamping anti-windup. */
+float FOC::servo_torque() {
+    const bool position = point_type == SetPointType::POSITION;
+    auto& regulator = position ? servo_pos_reg : servo_vel_reg;
+    const float error = target - (position ? get_angle() : get_velocity());
+
+    // Respect both torque limits and the current actually available, including stall derating.
+    const float torque_per_amp = drive_info.torque_const * drive_info.common.gear_ratio;
+    float limit = std::min(drive_info.max_torque, 30.0f * torque_per_amp);
+    const float user_limit = get_effective_torque_limit();
+    if (is_symmetric_limit_set(user_limit)) limit = std::min(limit, user_limit);
+    if (is_symmetric_limit_set(drive_runtime_config.current_limit)) {
+        limit = std::min(limit, drive_runtime_config.current_limit * torque_per_amp);
+    }
+
+    // D acts on measured velocity, so a position-target step has no derivative kick.
+    return regulator.regulation_with_derivative(error, T, -limit, limit, position ? -get_velocity() : 0.0f);
+}
+
 void FOC::update() {
 #ifdef FOC_PROFILE_DETAILED
     const uint32_t start_total = DWT->CYCCNT;
@@ -269,19 +288,12 @@ void FOC::update() {
             i_q_set = target / drive_info.torque_const / gear_ratio_f;
         }
         else {
-            float control_error = 0;
-            if (point_type == SetPointType::POSITION) {
-                control_error = target - get_angle();
-            }
-            else if (point_type == SetPointType::VELOCITY) {
-                control_error = target - get_velocity();
-            }
-            float controller_response = control_reg.regulation(control_error, T, false);
+            const float controller_response = servo_torque();
             #ifdef MONITOR
-            control_error_glob = control_error;
+            control_error_glob = target - (point_type == SetPointType::POSITION ? get_angle() : get_velocity());
             controller_response_glob = controller_response;
             #endif
-            i_q_set = controller_response * get_direction_multiplier();
+            i_q_set = controller_response * get_direction_multiplier() / drive_info.torque_const / gear_ratio_f;
         }
 
         const float abs_max_current_from_torque = (drive_info.max_torque / drive_info.torque_const / gear_ratio_f);

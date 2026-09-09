@@ -78,7 +78,16 @@ protected:
     FOCTarget foc_target;
     PIDRegulator q_reg;
     PIDRegulator d_reg;
-    PIDRegulator control_reg = PIDRegulator();
+    PIDRegulator servo_pos_reg;
+    PIDRegulator servo_vel_reg;
+
+    void reset_control() override {
+        servo_pos_reg.reset();
+        servo_vel_reg.reset();
+        foc_target = {};
+    }
+
+    float servo_torque();
 
     void apply_kalman();
     void update_angle();
@@ -136,14 +145,31 @@ public:
         if (
             !is_torque_target_valid(target.torque) ||
             !is_angle_target_valid(target.angle) ||
-            !is_velocity_target_valid(target.velocity)
+            !is_velocity_target_valid(target.velocity) ||
+            !std::isfinite(target.angle_kp) || !std::isfinite(target.velocity_kp)
         ) {
             return false;
         }
-        point_type = SetPointType::UNIVERSAL;
-        foc_target = std::move(target);
-        foc_target.torque *= get_direction_multiplier();
+        target.torque *= get_direction_multiplier();
+        CRITICAL_SECTION({
+            if (point_type != SetPointType::UNIVERSAL) reset_control();
+            point_type = SetPointType::UNIVERSAL;
+            foc_target = std::move(target);
+        })
         return true;
+    }
+    PIDConfig get_servo_config(SetPointType type) const {
+        return (type == SetPointType::POSITION ? servo_pos_reg : servo_vel_reg).get_config();
+    }
+    void update_servo_config(SetPointType type, PIDConfig config) {
+        auto& regulator = type == SetPointType::POSITION ? servo_pos_reg : servo_vel_reg;
+        CRITICAL_SECTION({
+            const auto active = regulator.get_config();
+            if (active.kp != config.kp || active.ki != config.ki || active.kd != config.kd) {
+                regulator.update_config(config.kp, config.ki, config.kd);
+                regulator.reset();
+            }
+        })
     }
     void update_q_config(PIDConfig&& new_config) {
         q_reg.update_config(std::move(new_config));
@@ -152,7 +178,8 @@ public:
         d_reg.update_config(std::move(new_config));
     }
     void update_control_config(PIDConfig&& new_config) {
-        control_reg.update_config(std::move(new_config));
+        update_servo_config(SetPointType::POSITION, new_config);
+        update_servo_config(SetPointType::VELOCITY, new_config);
     }
     const GenericEncoder& get_encoder() const {
         return encoder;

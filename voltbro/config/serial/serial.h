@@ -8,6 +8,7 @@
 #include <voltbro/eeprom/eeprom.hpp>
 
 #include <nanoprintf.h>
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -52,7 +53,7 @@ public:
         va_end(args);
 
         if (written > 0) {
-            pos += written;
+            pos += std::min(static_cast<size_t>(written), max_size - pos);
         }
     }
 };

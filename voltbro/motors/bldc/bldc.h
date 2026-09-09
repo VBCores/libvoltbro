@@ -81,6 +81,7 @@ protected:
     }
 
     FORCE_INLINE bool is_angle_target_valid(float angle) const {
+        if (!std::isfinite(angle)) return false;
         const float lower = drive_runtime_config.user_position_lower_limit;
         const float upper = drive_runtime_config.user_position_upper_limit;
         if (std::isfinite(lower) && (angle < lower)) {
@@ -93,11 +94,11 @@ protected:
     }
 
     FORCE_INLINE bool is_velocity_target_valid(float velocity) const {
-        return is_within_symmetric_limit(velocity, drive_runtime_config.user_speed_limit);
+        return std::isfinite(velocity) && is_within_symmetric_limit(velocity, drive_runtime_config.user_speed_limit);
     }
 
     FORCE_INLINE bool is_torque_target_valid(float torque) const {
-        return is_within_symmetric_limit(torque, get_effective_torque_limit());
+        return std::isfinite(torque) && is_within_symmetric_limit(torque, get_effective_torque_limit());
     }
 
     FORCE_INLINE float get_direction_multiplier() const {
@@ -118,6 +119,16 @@ protected:
     arm_atomic(bool) _is_on;
     arm_atomic(bool) is_stalling;
     uint16_t DQs[3] = {0, 0, 0};
+
+    virtual void reset_control() {}
+
+    void set_point(SetPointType type, float value) {
+        CRITICAL_SECTION({
+            if (point_type != type) reset_control();
+            point_type = type;
+            target = value;
+        })
+    }
 public:
     BLDCController(
         const DriveRuntimeConfig& runtime_config,
@@ -174,8 +185,7 @@ public:
         if (!is_angle_target_valid(angle)) {
             return false;
         }
-        point_type = SetPointType::POSITION;
-        target = angle;
+        set_point(SetPointType::POSITION, angle);
         return true;
     }
 
@@ -183,21 +193,19 @@ public:
         if (!is_velocity_target_valid(velocity)) {
             return false;
         }
-        point_type = SetPointType::VELOCITY;
-        target = velocity;
+        set_point(SetPointType::VELOCITY, velocity);
         return true;
     }
     FORCE_INLINE virtual bool set_torque_point(float torque) {
         if (!is_torque_target_valid(torque)) {
             return false;
         }
-        point_type = SetPointType::TORQUE;
-        target = torque * get_direction_multiplier();
+        set_point(SetPointType::TORQUE, torque * get_direction_multiplier());
         return true;
     }
     FORCE_INLINE virtual bool set_voltage_point(float voltage) {
-        point_type = SetPointType::VOLTAGE;
-        target = voltage * get_direction_multiplier();
+        if (!std::isfinite(voltage)) return false;
+        set_point(SetPointType::VOLTAGE, voltage * get_direction_multiplier());
         return true;
     }
     const DriveInfo& get_info() const {

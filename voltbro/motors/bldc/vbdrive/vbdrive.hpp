@@ -416,6 +416,7 @@ public:
         }
 
         HAL_StatusTypeDef stop() override {
+            (void)set_voltage_point(0.0f);
             _is_on = false;
             bootstrap_charge_deadline_ms = 0;
             __HAL_TIM_MOE_DISABLE(htim);
@@ -428,6 +429,7 @@ public:
         }
 
         HAL_StatusTypeDef start() override {
+            (void)set_voltage_point(0.0f);
             bootstrap_charge_deadline_ms = HAL_GetTick() + bootstrap_charge_time_ms;
 
             HAL_StatusTypeDef result = gate_driver.wake();

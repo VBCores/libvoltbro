@@ -65,6 +65,7 @@ public:
 
 // NOTE: caller has to GUARANTEE that calculations_buffer is AT LEAST (CALIBRATION_BUFF_SIZE + 1) * sizeof(int) bytes long
 void FOC::calibrate(CalibrationData& calibration_data, std::byte* additional_buffer, size_t buffer_size) {
+    (void)set_voltage_point(0.0f);
     volatile struct CalibrationStats {
         int soft_gaps_n = 0;
         int hard_gaps_n = 0;

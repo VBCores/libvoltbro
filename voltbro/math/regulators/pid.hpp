@@ -3,6 +3,7 @@
 #include <utility>
 #include <algorithm>
 #include <tuple>
+#include <limits>
 #include "voltbro/utils.hpp"
 
 #ifdef ARM_MATH_CM4
@@ -52,6 +53,10 @@ protected:
         };
     }
 public:
+    void reset() {
+        signal = integral_error = prev_error = 0.0f;
+    }
+
     explicit PIDRegulator(PIDConfig&& config) : config(std::move(config)) {}
     PIDRegulator() {}
 
@@ -114,7 +119,33 @@ public:
     void update_config(PIDConfig&& new_config) {
         config = std::move(new_config);
     }
-    PIDConfig get_config() {
+    /** PID with an explicit error derivative and conditional integration.
+     * Pass negative measured velocity for position D without setpoint kick.
+     * Unlike the legacy overloads, dynamic limits also clamp the output and I.
+     */
+    float regulation_with_derivative(float error, float dt, float lower_limit, float upper_limit, float derivative) {
+        const float lower = std::max(lower_limit, config.min_output);
+        const float upper = std::min(upper_limit, config.max_output);
+        const float integral_limit = std::abs(config.ki) * config.integral_error_lim;
+        const float integral_lower = std::max(std::min(lower, 0.0f), -integral_limit);
+        const float integral_upper = std::min(std::max(upper, 0.0f), integral_limit);
+        float integral = config.ki == 0.0f ? 0.0f :
+            std::clamp(config.ki * integral_error, integral_lower, integral_upper);
+        const float increment = config.ki * error * dt;
+        const float candidate = std::clamp(integral + increment, integral_lower, integral_upper);
+        const float pd = config.multiplier * config.kp * error + config.kd * derivative;
+        const float raw = pd + candidate;
+        // Block integration into saturation, but allow unwinding while saturated.
+        if ((raw <= upper || increment < 0) && (raw >= lower || increment > 0)) {
+            integral = candidate;
+        }
+        integral_error = config.ki == 0.0f ? 0.0f : integral / config.ki;
+        prev_error = error;
+        signal = std::clamp(pd + integral, lower, upper);
+        return signal;
+    }
+
+    PIDConfig get_config() const {
         return config;
     }
 };
