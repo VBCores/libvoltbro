@@ -29,9 +29,10 @@ private:
     size_t pos;
     char* buffer;
     UART_HandleTypeDef* huart;
+    const bool blocking;
 public:
-    UARTResponseAccumulator(UART_HandleTypeDef* huart, char* buffer, size_t max_size) :
-        max_size(max_size), pos(0), buffer(buffer), huart(huart) {}
+    UARTResponseAccumulator(UART_HandleTypeDef* huart, char* buffer, size_t max_size, bool blocking = false) :
+        max_size(max_size), pos(0), buffer(buffer), huart(huart), blocking(blocking) {}
 
     ~UARTResponseAccumulator() {
         if (pos > 0) {
@@ -41,11 +42,7 @@ public:
     }
 
     void append(const char* fmt, ...) {
-        if (pos >= max_size) return;
-        if (pos > 0) {
-            // Overwrite the last \0
-            pos--;
-        }
+        if (pos + 1 >= max_size) return;
 
         va_list args;
         va_start(args, fmt);
@@ -53,7 +50,14 @@ public:
         va_end(args);
 
         if (written > 0) {
-            pos += std::min(static_cast<size_t>(written), max_size - pos);
+            pos += std::min(static_cast<size_t>(written), max_size - pos - 1);
+            if (blocking) {
+                // Config dumps run in thread mode and exceed the shared TX buffer in total.
+                if (HAL_UART_Transmit(huart, reinterpret_cast<uint8_t*>(buffer), pos, 100) != HAL_OK) {
+                    Error_Handler();
+                }
+                pos = 0;
+            }
         }
     }
 };
@@ -163,15 +167,13 @@ protected:
     }
 
     void load_config() {
-        UARTResponseAccumulator responses(huart, uart_tx_buffer, UART_TX_BUFFER_SIZE);
+        wait_for_uart();
+        UARTResponseAccumulator responses(huart, uart_tx_buffer, UART_TX_BUFFER_SIZE, true);
 
         auto status = eeprom.read<ConfigT>(&config_data, config_location);
         if (status != HAL_OK) {
             Error_Handler();
         }
-        responses.append("Got config_data type_id: <0x%08lX>\r\n\r\n", config_data.type_id);
-        config_data.print_self(responses);
-
         if (config_data.type_id != ConfigT::TYPE_ID) {
             config_data = ConfigT();
             responses.append("Saving config...\r\n");
@@ -180,13 +182,20 @@ protected:
 
         if (!config_data.was_configured || !config_data.are_required_params_set()) {
             turn_off();
-            responses.append("Controller was not configured!\r\n");
         }
         else {
             turn_on();
             app_state = StateT::RUNNING;
-            responses.append("Controller is configured, starting\r\n");
         }
+        print_info(responses);
+    }
+
+    void print_info(UARTResponseAccumulator& responses) {
+        responses.append("Got config_data type_id: <0x%08lX>\r\n\r\n", config_data.type_id);
+        config_data.print_self(responses);
+        responses.append(config_data.was_configured && config_data.are_required_params_set()
+            ? "Controller is configured, starting\r\n" : "Controller was not configured!\r\n");
+        responses.append("See HELP for available commands\r\n");
     }
 
     void enable_config_mode() {
@@ -213,7 +222,7 @@ protected:
 
 public:
     void wait_for_uart() {
-        while (HAL_UART_GetState(huart) == HAL_UART_STATE_BUSY) {}
+        while (huart->gState == HAL_UART_STATE_BUSY_TX || huart->gState == HAL_UART_STATE_BUSY) {}
     }
 
     StateT::ValueT get_state() {
@@ -328,7 +337,8 @@ public:
         if (!preprocess_command(command)) {
             return;
         }
-        UARTResponseAccumulator responses(huart, uart_tx_buffer, UART_TX_BUFFER_SIZE);
+        UARTResponseAccumulator responses(huart, uart_tx_buffer, UART_TX_BUFFER_SIZE,
+                                          command == "INFO" || command == "HELP");
 
         if (actions.count(command) == 0) {
             process_command(command, responses);
