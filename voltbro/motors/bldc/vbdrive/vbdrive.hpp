@@ -3,6 +3,7 @@
 #include "voltbro/utils.hpp"
 #if defined(STM32G4) || defined(STM32_G)
 #include "stm32g4xx_hal.h"
+#include "stm32g4xx_ll_adc.h"
 #include "stm32g4xx_ll_i2c.h"
 #include "stm32g4xx_ll_gpio.h"
 #include "stm32g4xx_ll_spi.h"
@@ -20,7 +21,7 @@ class VBInverter final: public BaseInverter {
 private:
     static constexpr float adc_conversion_factor = 3.3f / (1.0f * 4096.0f);
 
-    const volatile uint32_t __attribute__((aligned(4))) ADC_1_buffer[3] = {};
+    const volatile uint32_t __attribute__((aligned(4))) ADC_1_buffer[4] = {};
     ADC_HandleTypeDef* hadc_1;
     const volatile uint32_t __attribute__((aligned(4))) ADC_2_buffer[2] = {};
     ADC_HandleTypeDef* hadc_2;
@@ -43,10 +44,6 @@ public:
     FORCE_INLINE float read_raw_V() const {
         return 16.0f * (float)ADC_1_buffer[1] * adc_conversion_factor;
     }
-    FORCE_INLINE float read_raw_T() const {
-        return (float)ADC_1_buffer[2]*1.1f;
-    }
-
     void start() override{
         if (has_started()) {
             return;
@@ -55,7 +52,7 @@ public:
 
         HAL_ADCEx_Calibration_Start(hadc_1, ADC_SINGLE_ENDED);
         HAL_ADCEx_Calibration_Start(hadc_2, ADC_SINGLE_ENDED);
-        HAL_ADC_Start_DMA(hadc_1, const_cast<uint32_t *>(ADC_1_buffer), 3);
+        HAL_ADC_Start_DMA(hadc_1, const_cast<uint32_t *>(ADC_1_buffer), 4);
         HAL_ADC_Start_DMA(hadc_2, const_cast<uint32_t *>(ADC_2_buffer), 2);
 
         HAL_Delay(100);
@@ -87,11 +84,19 @@ public:
     }
 
     void update_temperature() {
-        const float TS_CAL1_TEMP = 30.0f;
-        const float TS_CAL2_TEMP = 130.0f;
-        volatile float TS_CAL1 = (float)*(uint16_t*)0x1FFF75A8;
-        volatile float TS_CAL2 = (float)*(uint16_t*)0x1FFF75CA;
-        mcu_temperature = (TS_CAL2_TEMP - TS_CAL1_TEMP) * (read_raw_T() - TS_CAL1) / ( TS_CAL2 - TS_CAL1 ) + TS_CAL1_TEMP;
+        const auto vref_adc = ADC_1_buffer[3];
+        if (vref_adc == 0) {
+            mcu_temperature = NAN;
+        } else {
+            // STSPIN32G4 embeds STM32G431VBx3; its datasheet DS12589 Table 5 specifies 30/130 C at VDDA=3.0 V.
+            // The bundled stm32g4xx_ll_adc.h incorrectly defines CAL2_TEMP as 110 C.
+            // VREFINT scales the ADC reading to the factory calibration voltage.
+            const float temp_adc_at_cal_vdda = static_cast<float>(ADC_1_buffer[2]) *
+                static_cast<float>(*VREFINT_CAL_ADDR) / static_cast<float>(vref_adc);
+            const float cal1 = static_cast<float>(*TEMPSENSOR_CAL1_ADDR);
+            const float cal2 = static_cast<float>(*TEMPSENSOR_CAL2_ADDR);
+            mcu_temperature = 30.0f + 100.0f * (temp_adc_at_cal_vdda - cal1) / (cal2 - cal1);
+        }
 
         float thermistor = 1.0f / (4095.0f / ADC_2_buffer[1] - 1.0f);
         float steinhart = logf(thermistor);
