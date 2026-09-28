@@ -233,10 +233,9 @@ public:
         app_state = state;
     }
 
-    void try_persist_config(UARTResponseAccumulator& responses) {
+    void try_persist_config() {
         if (do_save) {
             save_config();
-            responses.append("Saved config\n\r");
         }
     }
 
@@ -294,12 +293,17 @@ public:
     virtual void process_command(CommandArg command, UARTResponseAccumulator& responses) {
         if (command == CONFIG_COMMAND) {
             enable_config_mode();
-            responses.append("CONFIG MODE ENABLED\n\r");
+            responses.append("CONFIG OK: mode enabled\r\n");
             return;
         }
         if (command == APPLY_COMMAND) {
-            try_persist_config(responses);
+            try_persist_config();
+            wait_for_uart();
+            char message[] = "APPLY OK\r\n";
+            if (HAL_UART_Transmit(huart, reinterpret_cast<uint8_t*>(message),
+                                  sizeof(message) - 1, 100) != HAL_OK) Error_Handler();
             NVIC_SystemReset();
+            return;
         }
 
         if (app_state != StateT::CONFIG) {
@@ -307,15 +311,14 @@ public:
         }
 
         if (command == RESET_COMMAND) {
-            responses.append("Setting default config\n\r");
             config_data = ConfigT();
-            responses.append("NOTE: config changes not applied! To apply, run APPLY or reset controller\n\r");
+            responses.append("RESET OK: defaults staged; run APPLY to activate\r\n");
             do_save = true;
         }
         else if (command == SAVE_COMMAND) {
-            try_persist_config(responses);
+            try_persist_config();
             disable_config_mode();
-            responses.append("NOTE: config changes not applied! To apply, run APPLY or reset controller\n\r");
+            responses.append("SAVE OK: config saved; run APPLY to activate\r\n");
         }
         else {
             // Если не в режиме конфигурации, игнорируем параметры
@@ -324,11 +327,10 @@ public:
             }
             bool is_processed = process_parameter(command, responses);
             if (!is_processed) {
-                responses.append("ERROR: Unknown command\n\r");
+                responses.append("%.*s ERROR: Unknown command\r\n", static_cast<int>(command.size()), command.data());
             }
             if (config_data.are_required_params_set()) {
                 config_data.was_configured = true;
-                responses.append("All essential parameters set\n\r");
             }
         }
     }
@@ -347,12 +349,14 @@ public:
 
         auto& [checker, action] = actions.at(command);
         if (!checker()) {
-            responses.append("Action conditions not met\n\r");
+            responses.append("%.*s ERROR: conditions not met\r\n",
+                             static_cast<int>(command.size()), command.data());
             return;
         }
 
         bool is_ok = action();
-        responses.append(is_ok ? "Ok\n\r" : "Failed\n\r");
+        responses.append("%.*s %s\r\n", static_cast<int>(command.size()), command.data(),
+                         is_ok ? "OK" : "ERROR: failed");
     }
 
     AppConfigurator(
