@@ -151,7 +151,6 @@ public:
         ) {
             return false;
         }
-        target.torque *= get_direction_multiplier();
         CRITICAL_SECTION({
             if (point_type != SetPointType::UNIVERSAL) reset_control();
             point_type = SetPointType::UNIVERSAL;

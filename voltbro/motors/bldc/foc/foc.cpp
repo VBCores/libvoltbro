@@ -278,7 +278,7 @@ void FOC::update() {
             value_foc_v_kp = foc_target.velocity_kp;
             value_foc_t = foc_target.torque;
             #endif
-            i_q_set = 1.0f / drive_info.torque_const * (
+            i_q_set = get_direction_multiplier() / drive_info.torque_const * (
                 foc_target.angle_kp * (foc_target.angle - get_angle()) +
                 foc_target.velocity_kp * (foc_target.velocity - get_velocity()) +
                 (foc_target.torque / gear_ratio_f)
