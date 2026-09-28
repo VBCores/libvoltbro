@@ -179,17 +179,18 @@ void FOC::update_sensors() {
 }
 
 
-/** Compute output-shaft torque using position PID or velocity PI with clamping anti-windup. */
+/** Compute motor-side torque using position PID or velocity PI with clamping anti-windup. */
 float FOC::servo_torque() {
     const bool position = point_type == SetPointType::POSITION;
     auto& regulator = position ? servo_pos_reg : servo_vel_reg;
     const float error = target - (position ? get_angle() : get_velocity());
 
     // Respect both torque limits and the current actually available, including stall derating.
-    const float torque_per_amp = drive_info.torque_const * drive_info.common.gear_ratio;
-    float limit = std::min(drive_info.max_torque, 30.0f * torque_per_amp);
+    const float gear_ratio_f = static_cast<float>(drive_info.common.gear_ratio);
+    const float torque_per_amp = drive_info.torque_const;
+    float limit = std::min(drive_info.max_torque / gear_ratio_f, 30.0f * torque_per_amp);
     const float user_limit = get_effective_torque_limit();
-    if (is_symmetric_limit_set(user_limit)) limit = std::min(limit, user_limit);
+    if (is_symmetric_limit_set(user_limit)) limit = std::min(limit, user_limit / gear_ratio_f);
     if (is_symmetric_limit_set(drive_runtime_config.current_limit)) {
         limit = std::min(limit, drive_runtime_config.current_limit * torque_per_amp);
     }
@@ -293,7 +294,7 @@ void FOC::update() {
             control_error_glob = target - (point_type == SetPointType::POSITION ? get_angle() : get_velocity());
             controller_response_glob = controller_response;
             #endif
-            i_q_set = controller_response * get_direction_multiplier() / drive_info.torque_const / gear_ratio_f;
+            i_q_set = controller_response * get_direction_multiplier() / drive_info.torque_const;
         }
 
         const float abs_max_current_from_torque = (drive_info.max_torque / drive_info.torque_const / gear_ratio_f);
