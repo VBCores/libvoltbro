@@ -130,7 +130,7 @@ void FOC::calibrate(CalibrationData& calibration_data, std::byte* additional_buf
         set_electric_angle(angle, 100);
 
         float step = ppairs * pi2 / 4000.0f;
-        if (raw_elec_angle < (encoder.CPR / 2.0f)) {
+        if (raw_rotor_angle < (encoder.CPR / 2.0f)) {
             step = -step;
         }
         int attempts = 0;
@@ -144,7 +144,7 @@ void FOC::calibrate(CalibrationData& calibration_data, std::byte* additional_buf
         }
         set_electric_angle(0.0f, 100);
 
-        return raw_elec_angle;
+        return raw_rotor_angle;
     };
 
     const int ppair_step_counts = 50;

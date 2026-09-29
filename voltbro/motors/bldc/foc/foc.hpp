@@ -69,7 +69,13 @@ struct FiltersConfig {
 class FOC: public BLDCController  {
 protected:
     float T;
-    float raw_elec_angle = 0;
+    float raw_rotor_angle = 0; // Calibrated mechanical rotor angle, rad in [0, 2*pi).
+    struct FilterState {
+        float rotor_angle = 0.0f; // Posterior mechanical rotor angle, rad.
+        float rotor_velocity = 0.0f; // Posterior rotor angular velocity, rad/s.
+        float residual_acceleration = 0.0f; // Acceleration beyond expected_a, rad/s^2.
+        bool initialized = false;
+    } filter_state;
     float elec_angle = 0;
     float I_Q = 0;
     calibration_array_t* lookup_table = nullptr;
@@ -109,6 +115,7 @@ public:
         #pragma GCC diagnostic pop
 #endif
         const_cast<bool&>(encoder.is_inverted) = calibration_data.is_encoder_inverted;
+        filter_state = {}; // Calibration changes the measurement reference frame.
     }
 
     FOC(

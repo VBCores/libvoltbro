@@ -72,69 +72,63 @@ void FOC::update_angle() {
         offset_value += encoder.CPR;
     }
 
-    raw_elec_angle = offset_value * (pi2 / (float)encoder.CPR);
+    raw_rotor_angle = offset_value * (pi2 / (float)encoder.CPR);
 }
 
+/** Estimate rotor motion with a fixed-gain constant-acceleration observer.
+ * State is posterior to the previous measurement. Predict to this sample,
+ * then correct with its shortest angular innovation. Gains g1/g2/g3 have
+ * units 1, 1/s, 1/s^2. expected_a is a known acceleration input; the state
+ * estimates its residual. T is the sampling period in seconds.
+ * Publish the current-sample prior, preserving the existing output convention;
+ * the correction contributes to the next prediction, not a future PWM horizon.
+ * Model reference: Bellini, Bifaretti, Costantini, "A digital speed filter for
+ * motion control drives with a low resolution position encoder", 2003.
+ */
 void FOC::apply_kalman() {
 #ifdef FOC_PROFILE_DETAILED
     const uint32_t start_total = DWT->CYCCNT;
     uint32_t t_start = DWT->CYCCNT;
 #endif
-    static float prev_angle = -pi2 - 2;
+    // Seed the absolute angle from the first sample; assume rest until motion is observed.
+    float predicted_angle = raw_rotor_angle; // Current-sample prior rotor angle, rad.
+    float predicted_velocity = 0.0f; // Current-sample prior rotor velocity, rad/s.
+    if (!filter_state.initialized) {
+        filter_state.rotor_angle = raw_rotor_angle;
+        filter_state.rotor_velocity = 0.0f;
+        filter_state.residual_acceleration = 0.0f;
+        filter_state.initialized = true;
+    } else {
+        // Predict from the previous posterior under constant total acceleration.
+        const float acceleration = filter_state.residual_acceleration + filters_config.expected_a;
+        predicted_angle = filter_state.rotor_angle + filter_state.rotor_velocity * T +
+                          acceleration * (T * T) / 2.0f;
+        predicted_velocity = filter_state.rotor_velocity + acceleration * T;
+        predicted_angle = mfmod(predicted_angle, pi2);
+        if (predicted_angle < 0.0f) predicted_angle += pi2;
 
-    if (prev_angle < (-pi2 - 1)) {
-        prev_angle = raw_elec_angle;
-        return;
-    }
-
-    float travel = raw_elec_angle - prev_angle;
-    if (travel < -PI) {
-        travel += pi2;
-    } else if (travel > PI) {
-        travel -= pi2;
-    }
+        // Update using this sample's prediction.
+        // The nearest angular branch assumes prediction error is less than pi radians.
+        float innovation = raw_rotor_angle - predicted_angle; // Wrapped angle residual, rad.
+        if (innovation < -PI) innovation += pi2;
+        else if (innovation > PI) innovation -= pi2;
 #ifdef FOC_PROFILE_DETAILED
-    kalman_profile.start = DWT->CYCCNT - t_start;
-    t_start = DWT->CYCCNT;
+        kalman_profile.start = DWT->CYCCNT - t_start;
+        t_start = DWT->CYCCNT;
 #endif
-
-//#pragma region KALMAN_PAPER
-    /*
-     * Source: "A digital speed filter for motion control drives
-     *          with a low resolution position encoder",
-     * AUTOMATIKA, 44(2003),
-     * A. Bellini, S. Bifaretti, S. Constantini
-     */
-    // TODO: get acceleration from inverter?
-    static float Th_hat = 0.0f; // Theta hat, rad
-    static float W_hat = 0.0f; // Omega hat, rad/s
-    static float E_hat = 0.0f; // Epsilon hat, rad/s^2
-
-    // (11)
-    float nTh = Th_hat + W_hat * T + (E_hat + filters_config.expected_a) * (T*T) / 2.0f;
-    float nW = W_hat + (E_hat + filters_config.expected_a) * T;
-    float nE = E_hat;
-
-    nTh = mfmod(nTh, pi2);
-    if( nTh < 0.0f ){
-        nTh += pi2;
+        filter_state.rotor_angle = predicted_angle + filters_config.g1 * innovation;
+        filter_state.rotor_velocity = predicted_velocity + filters_config.g2 * innovation;
+        filter_state.residual_acceleration += filters_config.g3 * innovation;
     }
-
-    // (19)
-    Th_hat = nTh + filters_config.g1 * travel;
-    W_hat = nW + filters_config.g2 * travel;
-    E_hat = nE + filters_config.g3 * travel;
-//#pragma endregion KALMAN_PAPER
 #ifdef FOC_PROFILE_DETAILED
     kalman_profile.mid = DWT->CYCCNT - t_start;
     t_start = DWT->CYCCNT;
 #endif
 
-    const float ab = pi2 / (float)drive_info.common.ppairs;
-    elec_angle = (float)drive_info.common.ppairs * mfmod(nTh, ab);
-    shaft_velocity = nW / drive_info.common.gear_ratio;
-
-    prev_angle = nTh;
+    // Convert rotor mechanical radians to electrical phase and output-shaft velocity.
+    const float electrical_period = pi2 / static_cast<float>(drive_info.common.ppairs);
+    elec_angle = drive_info.common.ppairs * mfmod(predicted_angle, electrical_period);
+    shaft_velocity = predicted_velocity / drive_info.common.gear_ratio;
 #ifdef FOC_PROFILE_DETAILED
     kalman_profile.end = DWT->CYCCNT - t_start;
     kalman_profile.total = DWT->CYCCNT - start_total;
