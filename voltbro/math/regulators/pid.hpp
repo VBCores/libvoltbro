@@ -28,6 +28,7 @@ private:
     float signal = 0.0f;
     float integral_error = 0.0f;
     float prev_error = 0.0f;
+    float pending_integral_error = 0.0f; // Accumulated error * dt awaiting the next integral update.
     PIDConfig config;
 protected:
     std::tuple<float, float> get_raw_signal_and_intergal(float error, float dt) {
@@ -54,7 +55,7 @@ protected:
     }
 public:
     void reset() {
-        signal = integral_error = prev_error = 0.0f;
+        signal = integral_error = prev_error = pending_integral_error = 0.0f;
     }
 
     explicit PIDRegulator(PIDConfig&& config) : config(std::move(config)) {}
@@ -65,15 +66,20 @@ public:
     }
 
     FORCE_INLINE void set_integral_error(float new_integral) {
+        pending_integral_error = 0.0f;
         integral_error = std::clamp(new_integral, -config.integral_error_lim, config.integral_error_lim);
     }
 
     FORCE_INLINE void update_config(float kp, float ki, float kd) {
+        pending_integral_error = 0.0f;
         config.kp = kp;
         config.ki = ki;
         config.kd = kd;
     }
 
+    /** Derivative from successive errors; multiplier scales P only. Configured
+     * I-error/output limits and optional tolerance apply; saturation blocks I updates.
+     */
     float regulation(float error, float dt, bool zero_in_threshold=false) {
         if (zero_in_threshold && config.tolerance != 0.0f && (fabs(error) <= config.tolerance)) {
             signal = 0.0f;
@@ -90,6 +96,9 @@ public:
         return signal;
     }
 
+    /** Explicit bounds gate integration; final output uses configured output bounds.
+     * Other terms and the optional tolerance follow the configured-bounds overload.
+     */
     float regulation(float error, float dt, float lower_limit, float upper_limit, bool zero_in_threshold=false) {
         if (zero_in_threshold && config.tolerance != 0.0f && (fabs(error) <= config.tolerance)) {
             signal = 0.0f;
@@ -117,36 +126,41 @@ public:
     }
 
     void update_config(PIDConfig&& new_config) {
+        pending_integral_error = 0.0f;
         config = std::move(new_config);
     }
-    /** PID with an explicit error derivative and conditional integration.
-     * Pass negative measured velocity for position D without setpoint kick.
-     * Unlike the legacy overloads, dynamic limits also clamp the output and I.
+    /** PID using an externally supplied error derivative and dynamic output bounds.
+     * Uses kp, ki and kd; multiplier, tolerance and configured I/output limits are unused.
+     * lower_limit/upper_limit bound both the I contribution and the final output.
+     * Every call accumulates error * dt; update_integral commits it with conditional
+     * anti-windup. Ki == 0 clears I; tighter bounds also constrain retained I between commits.
      */
-    float regulation_with_derivative(float error, float dt, float lower_limit, float upper_limit, float derivative) {
-        const float lower = std::max(lower_limit, config.min_output);
-        const float upper = std::min(upper_limit, config.max_output);
-        const float pd = config.multiplier * config.kp * error + config.kd * derivative;
+    float regulation_with_derivative(float error, float dt, float lower_limit, float upper_limit, float derivative, bool update_integral = true) {
+        const float pd = config.kp * error + config.kd * derivative;
         float integral = 0.0f;
         if (config.ki == 0.0f) {
-            integral_error = 0.0f;
+            integral_error = pending_integral_error = 0.0f;
         } else {
-            integral = config.ki * integral_error;
-            const float integral_limit = std::abs(config.ki) * config.integral_error_lim;
-            const float integral_lower = std::max(std::min(lower, 0.0f), -integral_limit);
-            const float integral_upper = std::min(std::max(upper, 0.0f), integral_limit);
-            integral = std::clamp(integral, integral_lower, integral_upper);
-            const float increment = config.ki * error * dt;
-            const float candidate = std::clamp(integral + increment, integral_lower, integral_upper);
-            const float raw = pd + candidate;
-            // Block integration into saturation, but allow unwinding while saturated.
-            if ((raw <= upper || increment < 0.0f) && (raw >= lower || increment > 0.0f)) {
-                integral = candidate;
+            pending_integral_error += error * dt;
+            const float unbounded_integral = config.ki * integral_error;
+            integral = std::clamp(unbounded_integral, lower_limit, upper_limit);
+            if (update_integral) {
+                const float increment = config.ki * pending_integral_error;
+                pending_integral_error = 0.0f;
+                const float candidate = std::clamp(integral + increment, lower_limit, upper_limit);
+                const float raw = pd + candidate;
+                // Block integration into saturation, but allow unwinding while saturated.
+                if ((raw <= upper_limit || increment < 0.0f) && (raw >= lower_limit || increment > 0.0f)) {
+                    integral = candidate;
+                }
+                integral_error = integral / config.ki;
+            } else if (integral != unbounded_integral) {
+                // A tighter live limit must also constrain the retained I state.
+                integral_error = integral / config.ki;
             }
-            integral_error = integral / config.ki;
         }
         prev_error = error;
-        signal = std::clamp(pd + integral, lower, upper);
+        signal = std::clamp(pd + integral, lower_limit, upper_limit);
         return signal;
     }
 

@@ -396,6 +396,7 @@ public:
         encoder_data get_rotor_encoder_value() {
             return encoder.get_value();
         }
+
         encoder_data get_shaft_encoder_value() {
             return inductive_sensor.get_raw_value();
         }
@@ -421,6 +422,7 @@ public:
         }
 
         HAL_StatusTypeDef stop() override {
+            reset_servo_input();
             (void)set_voltage_point(0.0f);
             _is_on = false;
             bootstrap_charge_deadline_ms = 0;
@@ -434,6 +436,7 @@ public:
         }
 
         HAL_StatusTypeDef start() override {
+            reset_servo_input();
             (void)set_voltage_point(0.0f);
             bootstrap_charge_deadline_ms = HAL_GetTick() + bootstrap_charge_time_ms;
 

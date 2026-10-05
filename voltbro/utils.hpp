@@ -37,10 +37,12 @@ static FORCE_INLINE int64_t subtract_64(uint64_t first, uint64_t second) {
 
 #if defined(STM32G)
 #define CRITICAL_SECTION(code_blk)          \
+    {                                       \
     uint32_t primask_bit = __get_PRIMASK(); \
     __disable_irq();                        \
     code_blk                                \
-    __set_PRIMASK(primask_bit);
+    __set_PRIMASK(primask_bit);             \
+    }
 
 // TODO: add optional warning message?
 #define HAL_IMPORTANT(command) \

@@ -12,6 +12,8 @@
 #include <utility>
 
 #include "../bldc.h"
+#include "servo_control.hpp"
+#include "voltbro/profiling.hpp"
 #include "voltbro/math/regulators/pid.hpp"
 
 #define USE_CALIBRATION_ARRAY
@@ -63,12 +65,20 @@ struct FiltersConfig {
     float I_lpf_coefficient;
 };
 
+
 /**
  * Field oriented control.
  */
 class FOC: public BLDCController  {
 protected:
     float T;
+    ServoInputConfig servo_input_config;
+    std::optional<ServoCommand> servo_command;
+    std::optional<ServoTrajectoryStorage> servo_traj_generator;
+    uint32_t control_tick = 0;
+    uint8_t servo_reference_ticks = 0;
+    uint8_t servo_integral_ticks = 0;
+    bool servo_reference_initialize = false;
     float raw_rotor_angle = 0; // Calibrated mechanical rotor angle, rad in [0, 2*pi).
     struct FilterState {
         float rotor_angle = 0.0f; // Posterior mechanical rotor angle, rad.
@@ -88,6 +98,8 @@ protected:
     PIDRegulator servo_vel_reg;
 
     void reset_control() override {
+        servo_reference_ticks = servo_integral_ticks = 0;
+        servo_reference_initialize = false;
         servo_pos_reg.reset();
         servo_vel_reg.reset();
         foc_target = {};
@@ -159,9 +171,105 @@ public:
             return false;
         }
         CRITICAL_SECTION({
+            servo_traj_generator.reset();
+            servo_command.reset();
             if (point_type != SetPointType::UNIVERSAL) reset_control();
             point_type = SetPointType::UNIVERSAL;
             foc_target = std::move(target);
+        })
+        return true;
+    }
+    void reset_servo_input() {
+        CRITICAL_SECTION({
+            servo_traj_generator.reset();
+            servo_command.reset();
+            servo_reference_ticks = servo_integral_ticks = 0;
+            servo_reference_initialize = false;
+        })
+    }
+    [[gnu::noinline, gnu::optimize("Os")]] bool set_servo_input_config(ServoInputConfig config) {
+        std::optional<ServoCommand> command;
+        TrajectoryState initial;
+        uint32_t epoch;
+        CRITICAL_SECTION({
+            command = servo_command;
+            initial = (TrajectoryState{get_angle(), get_velocity()});
+            epoch = control_tick;
+        })
+        auto next = command ? make_servo_trajectory(command->type, config) : std::nullopt;
+        if (next && !get_trajectory(*next).start(initial, command->value)) return false;
+        CRITICAL_SECTION({
+            servo_input_config = config;
+            if (next) {
+                get_trajectory(*next).on_publish(
+                    servo_traj_generator ? &get_trajectory(*servo_traj_generator) : nullptr,
+                    static_cast<float>(control_tick - epoch + servo_reference_ticks + 1U) * T);
+                servo_traj_generator = std::move(next);
+            }
+        })
+        return true;
+    }
+    [[gnu::noinline, gnu::optimize("Os")]] bool set_servo_command(uint8_t type, float value, bool indexed = false, uint8_t index = 0) {
+        if (!std::isfinite(value)) return false;
+        SetPointType controller_type;
+        switch (type) {
+            case VELOCITY_DIRECT: case VELOCITY_RAMP:
+                if (!is_velocity_target_valid(value)) return false;
+                controller_type = SetPointType::VELOCITY;
+                break;
+            case POSITION_DIRECT: case POSITION_FILTER: case POSITION_POLY:
+                if (!is_angle_target_valid(value)) return false;
+                controller_type = SetPointType::POSITION;
+                break;
+            case TORQUE_DIRECT:
+                if (!is_torque_target_valid(value)) return false;
+                controller_type = SetPointType::TORQUE;
+                break;
+            case VOLTAGE_DIRECT:
+                controller_type = SetPointType::VOLTAGE;
+                break;
+            default: return false;
+        }
+        std::optional<ServoCommand> previous;
+        ServoInputConfig config;
+        TrajectoryState initial;
+        uint32_t epoch;
+        CRITICAL_SECTION({
+            previous = servo_command;
+            config = servo_input_config;
+            initial = (TrajectoryState{get_angle(), get_velocity()});
+            epoch = control_tick;
+        })
+        if (previous) {
+            const bool same_content = previous->type == type && previous->value == value;
+            if (indexed && previous->has_index && previous->index == index) return same_content;
+            if (!indexed && !previous->has_index && same_content) return true;
+        }
+        const bool changed_mode = !previous || previous->type != type;
+        VB_PROFILE_BEGIN(plan_start)
+        auto next = make_servo_trajectory(type, config);
+        if (next && !get_trajectory(*next).start(initial, value)) return false;
+        VB_PROFILE_RECORD_IF(type == POSITION_POLY, servo_schedule_profile.plans,
+                             servo_schedule_profile.plan_max, plan_start)
+        CRITICAL_SECTION({
+            if (point_type != controller_type) reset_control();
+            if (changed_mode) servo_reference_ticks = 0;
+            if (next) {
+                get_trajectory(*next).on_publish(
+                    !changed_mode && servo_traj_generator ? &get_trajectory(*servo_traj_generator) : nullptr,
+                    static_cast<float>(control_tick - epoch + servo_reference_ticks + 1U) * T);
+            }
+            servo_traj_generator = std::move(next);
+            if (changed_mode) servo_reference_initialize = true;
+            servo_command = (ServoCommand{type, value, indexed, index});
+            point_type = controller_type;
+            if (controller_type == SetPointType::TORQUE || controller_type == SetPointType::VOLTAGE) {
+                target = value * get_direction_multiplier();
+            } else if (changed_mode || type == POSITION_DIRECT || type == VELOCITY_DIRECT) {
+                target = servo_traj_generator
+                    ? std::visit([](const auto& generator) { return generator.reference; }, *servo_traj_generator)
+                    : value;
+            }
         })
         return true;
     }
@@ -175,6 +283,7 @@ public:
             if (active.kp != config.kp || active.ki != config.ki || active.kd != config.kd) {
                 regulator.update_config(config.kp, config.ki, config.kd);
                 regulator.reset();
+                if (point_type == type) servo_integral_ticks = 0;
             }
         })
     }

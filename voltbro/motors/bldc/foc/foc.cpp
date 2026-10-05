@@ -9,49 +9,6 @@
 
 #include "voltbro/math/transform.hpp"
 
-#ifdef FOC_PROFILE_DETAILED
-struct FOCProfile {
-    volatile uint32_t total = 0;
-    volatile uint32_t sensors = 0;
-    volatile uint32_t currents = 0;
-    volatile uint32_t outer_loop = 0;
-    volatile uint32_t pwm = 0;
-};
-static volatile FOCProfile foc_profile;
-
-struct SensorsProfile {
-    volatile uint32_t inverter = 0;
-    volatile uint32_t angle = 0;
-    volatile uint32_t kalman = 0;
-    volatile uint32_t total = 0;
-};
-static volatile SensorsProfile sensors_profile;
-
-struct KalmanProfile {
-    volatile uint32_t start = 0;
-    volatile uint32_t mid = 0;
-    volatile uint32_t end = 0;
-    volatile uint32_t total = 0;
-};
-static volatile KalmanProfile kalman_profile;
-#endif
-
-#if defined(MONITOR)
-volatile float I_D = 0;
-volatile float I_Q = 0;
-static float V_d, V_q;
-volatile float i_q_error, i_d_error;
-float d_response, q_response, i_q_set;
-volatile float control_error_glob = 0;
-volatile float controller_response_glob = 0;
-volatile float value_foc_p = 0;
-volatile float value_foc_v = 0;
-volatile float value_foc_p_kp = 0;
-volatile float value_foc_v_kp = 0;
-volatile float value_foc_t = 0;
-volatile encoder_data raw_value = 0;
-#endif
-
 void FOC::update_angle() {
     encoder.update_value();
 
@@ -86,10 +43,7 @@ void FOC::update_angle() {
  * motion control drives with a low resolution position encoder", 2003.
  */
 void FOC::apply_kalman() {
-#ifdef FOC_PROFILE_DETAILED
-    const uint32_t start_total = DWT->CYCCNT;
-    uint32_t t_start = DWT->CYCCNT;
-#endif
+    VB_PROFILE_DETAIL_BEGIN()
     // Seed the absolute angle from the first sample; assume rest until motion is observed.
     float predicted_angle = raw_rotor_angle; // Current-sample prior rotor angle, rad.
     float predicted_velocity = 0.0f; // Current-sample prior rotor velocity, rad/s.
@@ -112,96 +66,102 @@ void FOC::apply_kalman() {
         float innovation = raw_rotor_angle - predicted_angle; // Wrapped angle residual, rad.
         if (innovation < -PI) innovation += pi2;
         else if (innovation > PI) innovation -= pi2;
-#ifdef FOC_PROFILE_DETAILED
-        kalman_profile.start = DWT->CYCCNT - t_start;
-        t_start = DWT->CYCCNT;
-#endif
+    VB_PROFILE_DETAIL_SPLIT(kalman_profile.start)
         filter_state.rotor_angle = predicted_angle + filters_config.g1 * innovation;
         filter_state.rotor_velocity = predicted_velocity + filters_config.g2 * innovation;
         filter_state.residual_acceleration += filters_config.g3 * innovation;
     }
-#ifdef FOC_PROFILE_DETAILED
-    kalman_profile.mid = DWT->CYCCNT - t_start;
-    t_start = DWT->CYCCNT;
-#endif
+    VB_PROFILE_DETAIL_SPLIT(kalman_profile.mid)
 
     // Convert rotor mechanical radians to electrical phase and output-shaft velocity.
     const float electrical_period = pi2 / static_cast<float>(drive_info.common.ppairs);
     elec_angle = drive_info.common.ppairs * mfmod(predicted_angle, electrical_period);
     shaft_velocity = predicted_velocity / drive_info.common.gear_ratio;
-#ifdef FOC_PROFILE_DETAILED
-    kalman_profile.end = DWT->CYCCNT - t_start;
-    kalman_profile.total = DWT->CYCCNT - start_total;
-#endif
+    VB_PROFILE_DETAIL_END(kalman_profile.end, t_start)
+    VB_PROFILE_DETAIL_END(kalman_profile.total, start_total)
 }
 
 void FOC::update_shaft_angle() {
-    static float prev_elec_angle = elec_angle;
-    static int32_t elec_turns = 0;
-    float filtered_travel = elec_angle - prev_elec_angle;
-    prev_elec_angle = elec_angle;
-    if (filtered_travel < -PI) {
-        elec_turns += 1;
-    } else if (filtered_travel > PI) {
-        elec_turns -= 1;
+    static float prev_rotor_angle = raw_rotor_angle;
+    static int32_t rotor_turns = 0;
+    float travel = raw_rotor_angle - prev_rotor_angle;
+    prev_rotor_angle = raw_rotor_angle;
+    if (travel < -PI) {
+        rotor_turns += 1;
+    } else if (travel > PI) {
+        rotor_turns -= 1;
     }
-    float elec_unwrapped = (float)elec_turns * pi2 + elec_angle;
-    shaft_angle = elec_unwrapped / ( (float)drive_info.common.ppairs * drive_info.common.gear_ratio );
+    float rotor_angle_unwrapped = (float)rotor_turns * pi2 + raw_rotor_angle;
+    shaft_angle = rotor_angle_unwrapped / drive_info.common.gear_ratio;
 }
 
 void FOC::update_sensors() {
-#ifdef FOC_PROFILE_DETAILED
-    const uint32_t start_total = DWT->CYCCNT;
-    uint32_t t_start = DWT->CYCCNT;
-#endif
+    VB_PROFILE_DETAIL_BEGIN()
     inverter.update();
-#ifdef FOC_PROFILE_DETAILED
-    sensors_profile.inverter = DWT->CYCCNT - t_start;
-    t_start = DWT->CYCCNT;
-#endif
+    VB_PROFILE_DETAIL_SPLIT(sensors_profile.inverter)
     update_angle();
-#ifdef FOC_PROFILE_DETAILED
-    sensors_profile.angle = DWT->CYCCNT - t_start;
-    t_start = DWT->CYCCNT;
-#endif
+    VB_PROFILE_DETAIL_SPLIT(sensors_profile.angle)
     apply_kalman();
     update_shaft_angle();
-#ifdef FOC_PROFILE_DETAILED
-    sensors_profile.kalman = DWT->CYCCNT - t_start;
-    sensors_profile.total = DWT->CYCCNT - start_total;
-#endif
+    VB_PROFILE_DETAIL_END(sensors_profile.kalman, t_start)
+    VB_PROFILE_DETAIL_END(sensors_profile.total, start_total)
 }
 
 
 /** Compute motor-side torque using position PID or velocity PI with clamping anti-windup. */
 float FOC::servo_torque() {
+    VB_PROFILE_COUNT(servo_schedule_profile.calls)
     const bool position = point_type == SetPointType::POSITION;
     auto& regulator = position ? servo_pos_reg : servo_vel_reg;
+    if (servo_traj_generator) {
+        if (servo_reference_ticks == 0) {
+            VB_PROFILE_BEGIN(reference_start)
+            VB_PROFILE_COUNT(servo_schedule_profile.references)
+            auto& generator = get_trajectory(*servo_traj_generator);
+            if (servo_reference_initialize) {
+                generator.on_activate({get_angle(), get_velocity()});
+            }
+            target = generator.step(8 * T);
+            servo_reference_initialize = false;
+            servo_reference_ticks = 8;
+            VB_PROFILE_END(servo_schedule_profile.reference_max, reference_start)
+        }
+        --servo_reference_ticks;
+    }
+    const bool update_integral = ++servo_integral_ticks == 5;
+    if (update_integral) servo_integral_ticks = 0;
     const float error = target - (position ? get_angle() : get_velocity());
 
     // Respect both torque limits and the current actually available, including stall derating.
     const float gear_ratio_f = static_cast<float>(drive_info.common.gear_ratio);
     const float torque_per_amp = drive_info.torque_const;
     float limit = std::min(drive_info.max_torque / gear_ratio_f, 30.0f * torque_per_amp);
-    const float user_limit = get_effective_torque_limit();
-    if (is_symmetric_limit_set(user_limit)) limit = std::min(limit, user_limit / gear_ratio_f);
+    // Compare all bounds in motor-torque units, without converting current
+    // to output torque and back through the gear ratio on every tick.
+    if (is_symmetric_limit_set(drive_runtime_config.user_torque_limit)) {
+        limit = std::min(limit, drive_runtime_config.user_torque_limit / gear_ratio_f);
+    }
+    if (is_symmetric_limit_set(drive_runtime_config.user_current_limit)) {
+        limit = std::min(limit, drive_runtime_config.user_current_limit * torque_per_amp);
+    }
     if (is_symmetric_limit_set(drive_runtime_config.current_limit)) {
         limit = std::min(limit, drive_runtime_config.current_limit * torque_per_amp);
     }
 
     // D acts on measured velocity, so a position-target step has no derivative kick.
-    return regulator.regulation_with_derivative(error, T, -limit, limit, position ? -get_velocity() : 0.0f);
+    VB_PROFILE_BEGIN(integral_start)
+    const float response = regulator.regulation_with_derivative(error, T, -limit, limit,
+                                                 position ? -get_velocity() : 0.0f, update_integral);
+    VB_PROFILE_RECORD_IF(update_integral, servo_schedule_profile.integrals,
+                           servo_schedule_profile.integral_max, integral_start)
+    return response;
 }
 
 void FOC::update() {
-#ifdef FOC_PROFILE_DETAILED
-    const uint32_t start_total = DWT->CYCCNT;
-    uint32_t t_start = DWT->CYCCNT;
-#endif
+    ++control_tick;
+    VB_PROFILE_DETAIL_BEGIN()
     update_sensors();
-#ifdef FOC_PROFILE_DETAILED
-    foc_profile.sensors = DWT->CYCCNT - t_start;
-#endif
+    VB_PROFILE_DETAIL_END(foc_profile.sensors, t_start)
 
     // calculate sin and cos of electrical angle with the help of CORDIC.
     // convert electrical angle from float to q31. electrical theta should be [-pi, pi]
@@ -227,9 +187,7 @@ void FOC::update() {
     float V_d, V_q;
     static float I_D = 0;
     #endif
-    #ifdef FOC_PROFILE_DETAILED
-    t_start = DWT->CYCCNT;
-    #endif
+    VB_PROFILE_DETAIL_START()
     // LPF for motor current
     float tempD, tempQ;
     // dq0 transform on currents
@@ -239,9 +197,7 @@ void FOC::update() {
 
     I_D = I_D - (filters_config.I_lpf_coefficient * diff_D);
     I_Q = I_Q - (filters_config.I_lpf_coefficient * diff_Q);
-    #ifdef FOC_PROFILE_DETAILED
-    foc_profile.currents = DWT->CYCCNT - t_start;
-    #endif
+    VB_PROFILE_DETAIL_END(foc_profile.currents, t_start)
 
     const float gear_ratio_f = static_cast<float>(drive_info.common.gear_ratio);
     const float busV = inverter.get_busV();
@@ -262,9 +218,7 @@ void FOC::update() {
         V_d = std::clamp(d_response, -busV, busV);
 
         i_q_set = 0.0f;
-        #ifdef FOC_PROFILE_DETAILED
-        t_start = DWT->CYCCNT;
-        #endif
+    VB_PROFILE_DETAIL_START()
         if (point_type == SetPointType::UNIVERSAL) {
             #ifdef MONITOR
             value_foc_p = foc_target.angle;
@@ -309,16 +263,11 @@ void FOC::update() {
         i_q_error = i_q_set - I_Q;
         q_response = q_reg.regulation(i_q_error, T, busV);
         V_q = q_response;
-        #ifdef FOC_PROFILE_DETAILED
-        foc_profile.outer_loop = DWT->CYCCNT - t_start;
-        #endif
+    VB_PROFILE_DETAIL_END(foc_profile.outer_loop, t_start)
     }
 
     limit_norm(&V_d, &V_q, busV);
-
-    #ifdef FOC_PROFILE_DETAILED
-    t_start = DWT->CYCCNT;
-    #endif
+    VB_PROFILE_DETAIL_START()
     float v_u = 0, v_v = 0, v_w = 0;
     float dtc_u = 0, dtc_v = 0, dtc_w = 0;
 
@@ -332,13 +281,8 @@ void FOC::update() {
     DQs[2] = (uint16_t)(float(full_pwm + 1) * dtc_w);
 
     set_pwm();
-    #ifdef FOC_PROFILE_DETAILED
-    foc_profile.pwm = DWT->CYCCNT - t_start;
-    #endif
-
-#ifdef FOC_PROFILE_DETAILED
-    foc_profile.total = DWT->CYCCNT - start_total;
-#endif
+    VB_PROFILE_DETAIL_END(foc_profile.pwm, t_start)
+    VB_PROFILE_DETAIL_END(foc_profile.total, start_total)
 }
 
 
