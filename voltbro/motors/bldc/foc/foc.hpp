@@ -17,6 +17,7 @@
 #include "voltbro/math/regulators/pid.hpp"
 
 #define USE_CALIBRATION_ARRAY
+inline constexpr float MAX_BOARD_CURRENT = 30.0f; // Board current ceiling, A.
 constexpr size_t CALIBRATION_BUFF_SIZE = 2048;
 using __non_const_calib_array_t = std::array<int, CALIBRATION_BUFF_SIZE>;
 using calibration_array_t = const __non_const_calib_array_t;

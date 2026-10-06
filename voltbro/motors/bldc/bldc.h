@@ -29,7 +29,7 @@ enum class SetPointType: uint8_t  {
 enum class DrivePhase: uint8_t { PHASE_A = 0, PHASE_B = 1, PHASE_C = 2 };
 
 struct DriveInfo {
-    const float torque_const;
+    const float torque_const; // Output-shaft torque per q-axis ampere, N m/A.
     float max_current;
     float max_torque;
     float stall_current;
@@ -60,8 +60,7 @@ protected:
         if (!is_symmetric_limit_set(drive_runtime_config.user_current_limit)) {
             return NAN;
         }
-        return drive_runtime_config.user_current_limit * drive_info.torque_const *
-               static_cast<float>(drive_info.common.gear_ratio);
+        return drive_runtime_config.user_current_limit * drive_info.torque_const;
     }
 
     FORCE_INLINE float get_effective_torque_limit() const {

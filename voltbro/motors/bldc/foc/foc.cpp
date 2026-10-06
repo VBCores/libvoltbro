@@ -108,7 +108,7 @@ void FOC::update_sensors() {
 }
 
 
-/** Compute motor-side torque using position PID or velocity PI with clamping anti-windup. */
+/** Compute output-shaft torque using position PID or velocity PI with clamping anti-windup. */
 float FOC::servo_torque() {
     VB_PROFILE_COUNT(servo_schedule_profile.calls)
     const bool position = point_type == SetPointType::POSITION;
@@ -133,19 +133,17 @@ float FOC::servo_torque() {
     const float error = target - (position ? get_angle() : get_velocity());
 
     // Respect both torque limits and the current actually available, including stall derating.
-    const float gear_ratio_f = static_cast<float>(drive_info.common.gear_ratio);
-    const float torque_per_amp = drive_info.torque_const;
-    float limit = std::min(drive_info.max_torque / gear_ratio_f, 30.0f * torque_per_amp);
-    // Compare all bounds in motor-torque units, without converting current
-    // to output torque and back through the gear ratio on every tick.
+    float limit = std::min(drive_info.max_torque,
+        std::min(drive_info.max_current, MAX_BOARD_CURRENT) * drive_info.torque_const);
+    // All bounds use output-shaft torque; torque_const includes transmission effects.
     if (is_symmetric_limit_set(drive_runtime_config.user_torque_limit)) {
-        limit = std::min(limit, drive_runtime_config.user_torque_limit / gear_ratio_f);
+        limit = std::min(limit, drive_runtime_config.user_torque_limit);
     }
     if (is_symmetric_limit_set(drive_runtime_config.user_current_limit)) {
-        limit = std::min(limit, drive_runtime_config.user_current_limit * torque_per_amp);
+        limit = std::min(limit, drive_runtime_config.user_current_limit * drive_info.torque_const);
     }
     if (is_symmetric_limit_set(drive_runtime_config.current_limit)) {
-        limit = std::min(limit, drive_runtime_config.current_limit * torque_per_amp);
+        limit = std::min(limit, drive_runtime_config.current_limit * drive_info.torque_const);
     }
 
     // D acts on measured velocity, so a position-target step has no derivative kick.
@@ -199,10 +197,9 @@ void FOC::update() {
     I_Q = I_Q - (filters_config.I_lpf_coefficient * diff_Q);
     VB_PROFILE_DETAIL_END(foc_profile.currents, t_start)
 
-    const float gear_ratio_f = static_cast<float>(drive_info.common.gear_ratio);
     const float busV = inverter.get_busV();
 
-    shaft_torque = I_Q * drive_info.torque_const * gear_ratio_f;
+    shaft_torque = I_Q * drive_info.torque_const;
 
     if (point_type == SetPointType::VOLTAGE) {
         V_d = 0;
@@ -230,11 +227,11 @@ void FOC::update() {
             i_q_set = get_direction_multiplier() / drive_info.torque_const * (
                 foc_target.angle_kp * (foc_target.angle - get_angle()) +
                 foc_target.velocity_kp * (foc_target.velocity - get_velocity()) +
-                (foc_target.torque / gear_ratio_f)
+                foc_target.torque
             );
         }
         else if (point_type == SetPointType::TORQUE) {
-            i_q_set = target / drive_info.torque_const / gear_ratio_f;
+            i_q_set = target / drive_info.torque_const;
         }
         else {
             const float controller_response = servo_torque();
@@ -245,7 +242,7 @@ void FOC::update() {
             i_q_set = controller_response * get_direction_multiplier() / drive_info.torque_const;
         }
 
-        const float abs_max_current_from_torque = (drive_info.max_torque / drive_info.torque_const / gear_ratio_f);
+        const float abs_max_current_from_torque = drive_info.max_torque / drive_info.torque_const;
         if (fabs(i_q_set) > fabs(abs_max_current_from_torque)) {
             i_q_set = copysign(abs_max_current_from_torque, i_q_set);
         }
@@ -255,9 +252,10 @@ void FOC::update() {
         ) {
             i_q_set = copysign(drive_runtime_config.current_limit, i_q_set);
         }
-        // absolute limit on currents defined by the hardware safe operation region
-        if (fabs(i_q_set) > 30.0f) {
-            i_q_set = copysign(30.0f, i_q_set);
+        // Board and rated limits remain upper bounds independently of runtime derating.
+        const float max_current = std::min(drive_info.max_current, MAX_BOARD_CURRENT);
+        if (fabs(i_q_set) > max_current) {
+            i_q_set = copysign(max_current, i_q_set);
         }
 
         i_q_error = i_q_set - I_Q;
