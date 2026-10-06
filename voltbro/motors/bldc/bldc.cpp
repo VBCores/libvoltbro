@@ -88,7 +88,7 @@ void BLDCController::detect_stall(double passed_time_abs) {
         // TODO: burst
         // if (drive->is_bursting) {
         if ((cur_time - stall_start_time) > drive_info.stall_timeout) {
-            drive_runtime_config.current_limit = drive_info.stall_current;
+            drive_runtime_config.current_limit = std::min(drive_info.stall_current, drive_runtime_config.user_current_limit);
             // drive->is_bursting = false;
         }
     }

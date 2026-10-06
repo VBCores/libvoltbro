@@ -117,7 +117,7 @@ protected:
     arm_atomic(float) shaft_velocity;
     arm_atomic(float) shaft_torque = 0;
     arm_atomic(bool) _is_on;
-    arm_atomic(bool) is_stalling;
+    arm_atomic(bool) is_stalling = false;
     uint16_t DQs[3] = {0, 0, 0};
 
     virtual void reset_control() {}
@@ -157,26 +157,23 @@ public:
         ) {
             return false;
         }
-        if (
-            std::isfinite(runtime_config.user_current_limit) &&
-            (runtime_config.user_current_limit > drive_info.max_current)
-        ) {
-            return false;
-        }
-        if (
-            std::isfinite(runtime_config.user_torque_limit) &&
-            (runtime_config.user_torque_limit > drive_info.max_torque)
-        ) {
-            return false;
-        }
         return AbstractMotor::check_runtime_config(runtime_config);
     }
+    /** Resolve user limits against ratings without lifting an active stall reduction. */
     virtual HAL_StatusTypeDef apply_runtime_config() override {
         if (std::isnan(drive_runtime_config.user_current_limit) || drive_runtime_config.user_current_limit <= 0) {
             drive_runtime_config.user_current_limit = drive_info.max_current;
         }
         if (std::isnan(drive_runtime_config.user_torque_limit) || drive_runtime_config.user_torque_limit <= 0) {
             drive_runtime_config.user_torque_limit = drive_info.max_torque;
+        }
+        // Runtime limits are effective values; persistent user settings remain unchanged.
+        drive_runtime_config.user_current_limit = std::min(drive_runtime_config.user_current_limit, drive_info.max_current);
+        drive_runtime_config.user_torque_limit = std::min(drive_runtime_config.user_torque_limit, drive_info.max_torque);
+        if (!is_stalling || std::isnan(drive_runtime_config.current_limit)) {
+            drive_runtime_config.current_limit = drive_runtime_config.user_current_limit;
+        } else {
+            drive_runtime_config.current_limit = std::min(drive_runtime_config.current_limit, drive_runtime_config.user_current_limit);
         }
         return AbstractMotor::apply_runtime_config();
     }
