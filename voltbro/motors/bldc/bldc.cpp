@@ -55,6 +55,7 @@ HAL_StatusTypeDef BLDCController::start() {
 }
 
 HAL_StatusTypeDef BLDCController::set_state(bool state) {
+    if (state == _is_on) return HAL_OK;
     if (state) {
         return start();
     }

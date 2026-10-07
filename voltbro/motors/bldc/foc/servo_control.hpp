@@ -19,6 +19,7 @@ struct ServoInputConfig {
     float acceleration_limit = 0; // Position trajectory acceleration, output rad/s^2.
     float deceleration_limit = 0; // Position trajectory deceleration, output rad/s^2.
     float velocity_ramp_rate = 0; // Velocity command slew rate, output rad/s^2.
+    float velocity_planning_tolerance = .5f; // Allowed reference/measured speed difference, output rad/s.
 };
 
 struct ServoCommand {

@@ -24,5 +24,7 @@ public:
     /** First scheduled tick after activation; default retains the prepared initial state. */
     virtual void on_activate(TrajectoryState) {}
     virtual float step(float dt) = 0;
+    /** Latest reference velocity, in caller-selected position units per second. */
+    virtual float get_velocity() const = 0;
     virtual void reset() = 0;
 };

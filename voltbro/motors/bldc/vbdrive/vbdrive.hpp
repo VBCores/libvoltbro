@@ -422,22 +422,22 @@ public:
         }
 
         HAL_StatusTypeDef stop() override {
-            reset_servo_input();
-            (void)set_voltage_point(0.0f);
-            _is_on = false;
-            bootstrap_charge_deadline_ms = 0;
-            __HAL_TIM_MOE_DISABLE(htim);
-
-            HAL_StatusTypeDef result = gate_driver.request_standby();
-            if (result != HAL_OK) {
-                return result;
-            }
+            CRITICAL_SECTION({
+                __HAL_TIM_MOE_DISABLE_UNCONDITIONALLY(htim);
+                _is_on = false;
+                bootstrap_charge_deadline_ms = 0;
+                reset_servo_input();
+                (void)set_voltage_point(0.0f);
+                q_reg.reset();
+                d_reg.reset();
+            })
+            // VBDrive powers its MCU from STSPIN: keep the regulators running.
+            // Bridge PWM is disabled above; chip standby would reset the MCU.
             return HAL_OK;
         }
 
         HAL_StatusTypeDef start() override {
-            reset_servo_input();
-            (void)set_voltage_point(0.0f);
+            (void)stop();
             bootstrap_charge_deadline_ms = HAL_GetTick() + bootstrap_charge_time_ms;
 
             HAL_StatusTypeDef result = gate_driver.wake();
@@ -451,7 +451,7 @@ public:
 
             result = gate_driver.clear_faults();
             if (result != HAL_OK) {
-                __HAL_TIM_MOE_DISABLE(htim);
+                __HAL_TIM_MOE_DISABLE_UNCONDITIONALLY(htim);
                 bootstrap_charge_deadline_ms = 0;
                 return result;
             }

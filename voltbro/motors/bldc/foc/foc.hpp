@@ -108,6 +108,16 @@ protected:
 
     float servo_torque();
 
+    /** Measured position with the last generated velocity when it is close to measured velocity. */
+    TrajectoryState servo_initial_state(float tolerance) {
+        TrajectoryState initial{get_angle(), get_velocity()};
+        if (servo_traj_generator) {
+            const float velocity = get_trajectory(*servo_traj_generator).get_velocity();
+            if (std::fabs(velocity - initial.velocity) <= tolerance) initial.velocity = velocity;
+        }
+        return initial;
+    }
+
     void apply_kalman();
     void update_angle();
     virtual void update_shaft_angle();
@@ -189,12 +199,13 @@ public:
         })
     }
     [[gnu::noinline, gnu::optimize("Os")]] bool set_servo_input_config(ServoInputConfig config) {
+        if (!std::isfinite(config.velocity_planning_tolerance) || config.velocity_planning_tolerance < 0) return false;
         std::optional<ServoCommand> command;
         TrajectoryState initial;
         uint32_t epoch;
         CRITICAL_SECTION({
             command = servo_command;
-            initial = (TrajectoryState{get_angle(), get_velocity()});
+            initial = servo_initial_state(config.velocity_planning_tolerance);
             epoch = control_tick;
         })
         auto next = command ? make_servo_trajectory(command->type, config) : std::nullopt;
@@ -238,7 +249,7 @@ public:
         CRITICAL_SECTION({
             previous = servo_command;
             config = servo_input_config;
-            initial = (TrajectoryState{get_angle(), get_velocity()});
+            initial = servo_initial_state(config.velocity_planning_tolerance);
             epoch = control_tick;
         })
         if (previous) {
@@ -261,7 +272,7 @@ public:
                     static_cast<float>(control_tick - epoch + servo_reference_ticks + 1U) * T);
             }
             servo_traj_generator = std::move(next);
-            if (changed_mode) servo_reference_initialize = true;
+            if (changed_mode) servo_reference_initialize = type == VELOCITY_RAMP;
             servo_command = (ServoCommand{type, value, indexed, index});
             point_type = controller_type;
             if (controller_type == SetPointType::TORQUE || controller_type == SetPointType::VOLTAGE) {

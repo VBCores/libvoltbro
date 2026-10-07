@@ -153,4 +153,5 @@ public:
         for (auto& phase : phases) phase = {};
         goal = reference = velocity = elapsed = finish_time = 0;
     }
+    float get_velocity() const override { return velocity; }
 };

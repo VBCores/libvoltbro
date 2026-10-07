@@ -115,7 +115,7 @@ protected:
     arm_atomic(float) shaft_angle;
     arm_atomic(float) shaft_velocity;
     arm_atomic(float) shaft_torque = 0;
-    arm_atomic(bool) _is_on;
+    arm_atomic(bool) _is_on = false;
     arm_atomic(bool) is_stalling = false;
     uint16_t DQs[3] = {0, 0, 0};
 

@@ -50,4 +50,5 @@ public:
         initialized = false;
         goal = reference = 0;
     }
+    float get_velocity() const override { return reference; }
 };
