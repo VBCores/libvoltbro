@@ -77,6 +77,7 @@ protected:
     std::optional<ServoCommand> servo_command;
     std::optional<ServoTrajectoryStorage> servo_traj_generator;
     uint32_t control_tick = 0;
+    uint32_t servo_reference_epoch = 0; // FOC tick represented by the current generator state, including its horizon.
     uint8_t servo_reference_ticks = 0;
     uint8_t servo_integral_ticks = 0;
     bool servo_reference_initialize = false;
@@ -99,6 +100,7 @@ protected:
     PIDRegulator servo_vel_reg;
 
     void reset_control() override {
+        servo_reference_epoch = 0;
         servo_reference_ticks = servo_integral_ticks = 0;
         servo_reference_initialize = false;
         servo_pos_reg.reset();
@@ -108,8 +110,9 @@ protected:
 
     float servo_torque();
 
-    /** Measured position with the last generated velocity when it is close to measured velocity. */
-    TrajectoryState servo_initial_state(float tolerance) {
+    /** Continue the reference; on mode entry use measured position and a nearby reference velocity. */
+    TrajectoryState servo_initial_state(float tolerance, bool continuing = false) {
+        if (continuing && servo_traj_generator) return get_trajectory(*servo_traj_generator).get_state();
         TrajectoryState initial{get_angle(), get_velocity()};
         if (servo_traj_generator) {
             const float velocity = get_trajectory(*servo_traj_generator).get_velocity();
@@ -195,9 +198,11 @@ public:
             servo_traj_generator.reset();
             servo_command.reset();
             servo_reference_ticks = servo_integral_ticks = 0;
+            servo_reference_epoch = 0;
             servo_reference_initialize = false;
         })
     }
+    /** Apply settings while retaining a continuing reference and its time axis. */
     [[gnu::noinline, gnu::optimize("Os")]] bool set_servo_input_config(ServoInputConfig config) {
         if (!std::isfinite(config.velocity_planning_tolerance) || config.velocity_planning_tolerance < 0) return false;
         std::optional<ServoCommand> command;
@@ -205,22 +210,24 @@ public:
         uint32_t epoch;
         CRITICAL_SECTION({
             command = servo_command;
-            initial = servo_initial_state(config.velocity_planning_tolerance);
-            epoch = control_tick;
+            initial = servo_initial_state(config.velocity_planning_tolerance, servo_traj_generator.has_value());
+            epoch = servo_traj_generator ? servo_reference_epoch : control_tick;
         })
         auto next = command ? make_servo_trajectory(command->type, config) : std::nullopt;
         if (next && !get_trajectory(*next).start(initial, command->value)) return false;
         CRITICAL_SECTION({
             servo_input_config = config;
             if (next) {
-                get_trajectory(*next).on_publish(
+                get_trajectory(*next).on_update(
                     servo_traj_generator ? &get_trajectory(*servo_traj_generator) : nullptr,
                     static_cast<float>(control_tick - epoch + servo_reference_ticks + 1U) * T);
                 servo_traj_generator = std::move(next);
+                servo_reference_epoch = control_tick + servo_reference_ticks + 1U;
             }
         })
         return true;
     }
+    /** Snapshot state/time, prepare outside the critical section, then publish for the next reference tick. */
     [[gnu::noinline, gnu::optimize("Os")]] bool set_servo_command(uint8_t type, float value, bool indexed = false, uint8_t index = 0) {
         if (!std::isfinite(value)) return false;
         SetPointType controller_type;
@@ -249,8 +256,9 @@ public:
         CRITICAL_SECTION({
             previous = servo_command;
             config = servo_input_config;
-            initial = servo_initial_state(config.velocity_planning_tolerance);
-            epoch = control_tick;
+            const bool continuing = previous && previous->type == type && servo_traj_generator;
+            initial = servo_initial_state(config.velocity_planning_tolerance, continuing);
+            epoch = continuing ? servo_reference_epoch : control_tick;
         })
         if (previous) {
             const bool same_content = previous->type == type && previous->value == value;
@@ -267,20 +275,23 @@ public:
             if (point_type != controller_type) reset_control();
             if (changed_mode) servo_reference_ticks = 0;
             if (next) {
-                get_trajectory(*next).on_publish(
+                get_trajectory(*next).on_update(
                     !changed_mode && servo_traj_generator ? &get_trajectory(*servo_traj_generator) : nullptr,
                     static_cast<float>(control_tick - epoch + servo_reference_ticks + 1U) * T);
             }
             servo_traj_generator = std::move(next);
+            if (servo_traj_generator) servo_reference_epoch = control_tick + servo_reference_ticks + 1U;
             if (changed_mode) servo_reference_initialize = type == VELOCITY_RAMP;
             servo_command = (ServoCommand{type, value, indexed, index});
             point_type = controller_type;
             if (controller_type == SetPointType::TORQUE || controller_type == SetPointType::VOLTAGE) {
                 target = value * get_direction_multiplier();
             } else if (changed_mode || type == POSITION_DIRECT || type == VELOCITY_DIRECT) {
-                target = servo_traj_generator
-                    ? std::visit([](const auto& generator) { return generator.reference; }, *servo_traj_generator)
-                    : value;
+                target = value;
+                if (servo_traj_generator) {
+                    const auto state = get_trajectory(*servo_traj_generator).get_state();
+                    target = controller_type == SetPointType::VELOCITY ? state.velocity : state.position;
+                }
             }
         })
         return true;

@@ -122,6 +122,8 @@ float FOC::servo_torque() {
                 generator.on_activate({get_angle(), get_velocity()});
             }
             target = generator.step(8 * T);
+            servo_reference_epoch = control_tick + 8U;
+            VB_PROFILE_REFERENCE_TRACE(generator.get_state(), get_angle(), get_velocity(), control_tick)
             servo_reference_initialize = false;
             servo_reference_ticks = 8;
             VB_PROFILE_END(servo_schedule_profile.reference_max, reference_start)

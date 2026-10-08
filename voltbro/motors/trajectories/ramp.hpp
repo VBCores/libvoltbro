@@ -31,7 +31,7 @@ public:
         goal = target;
         return true;
     }
-    void on_publish(const TrajectoryGenerator* active, float) override {
+    void on_update(const TrajectoryGenerator* active, float) override {
         if (active) {
             const auto& current = static_cast<const RampTrajectory&>(*active);
             reference = current.reference;
@@ -50,5 +50,5 @@ public:
         initialized = false;
         goal = reference = 0;
     }
-    float get_velocity() const override { return reference; }
+    TrajectoryState get_state() const override { return {0, reference}; }
 };

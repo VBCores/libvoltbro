@@ -110,10 +110,10 @@ public:
     bool retarget(TrajectoryState initial, float target) override {
         return initialized && start(initial, target);
     }
-    void on_publish(const TrajectoryGenerator*, float delay) override {
+    /** Advance to the first scheduled tick; step adds the future reference horizon once. */
+    void on_update(const TrajectoryGenerator*, float delay) override {
         assert(initialized && delay >= 0 && std::isfinite(delay));
-        elapsed = delay;
-        time_error = 0;
+        sample_at(delay);
     }
     /** Evaluate at an absolute elapsed time without accumulating timestep error. */
     float sample_at(float time) {
@@ -153,5 +153,5 @@ public:
         for (auto& phase : phases) phase = {};
         goal = reference = velocity = elapsed = finish_time = 0;
     }
-    float get_velocity() const override { return velocity; }
+    TrajectoryState get_state() const override { return {reference, velocity}; }
 };

@@ -15,16 +15,19 @@ public:
     virtual ~TrajectoryGenerator() = default;
     virtual bool start(TrajectoryState initial, float target) = 0;
     virtual bool retarget(TrajectoryState initial, float target) = 0;
-    /** Publish a successfully started candidate. Active is null on mode entry,
+    /** Update a successfully started candidate before installing it as active.
+     * This hook handles commands/settings; periodic progression belongs to step.
+     * Active is null on mode entry,
      * otherwise it must be the same concrete type. Called with execution excluded;
      * delay is the time from the initial-state snapshot to the first scheduled step.
      * Implementations may preserve active reference state, never its old goal/settings.
      */
-    virtual void on_publish(const TrajectoryGenerator*, float) {}
+    virtual void on_update(const TrajectoryGenerator*, float) {}
     /** First scheduled tick after activation; default retains the prepared initial state. */
     virtual void on_activate(TrajectoryState) {}
     virtual float step(float dt) = 0;
-    /** Latest reference velocity, in caller-selected position units per second. */
-    virtual float get_velocity() const = 0;
+    /** Latest reference state. Velocity-only generators return an unused zero position. */
+    virtual TrajectoryState get_state() const = 0;
+    float get_velocity() const { return get_state().velocity; }
     virtual void reset() = 0;
 };

@@ -32,6 +32,13 @@ public:
         goal = target;
         return true;
     }
+    void on_update(const TrajectoryGenerator* active, float) override {
+        if (active) {
+            const auto state = active->get_state();
+            reference = state.position;
+            velocity = state.velocity;
+        }
+    }
     void on_activate(TrajectoryState initial) override {
         reference = initial.position;
         velocity = initial.velocity;
@@ -49,5 +56,5 @@ public:
         initialized = false;
         goal = reference = velocity = 0;
     }
-    float get_velocity() const override { return velocity; }
+    TrajectoryState get_state() const override { return {reference, velocity}; }
 };

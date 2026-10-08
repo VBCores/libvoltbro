@@ -102,7 +102,7 @@ struct IntervalStats {
     volatile uint32_t gap_histogram[51] = {}; // 100 us bins; last bin >=5 ms.
 
     /** Record one subscription callback and its DWT interval within a continuous stream. */
-    void record(uint32_t now_ms, uint32_t now_cycles, uint32_t cycles_per_ms,
+    [[gnu::noinline, gnu::optimize("Os")]] void record(uint32_t now_ms, uint32_t now_cycles, uint32_t cycles_per_ms,
                 uint32_t first_counter = 0, uint32_t second_counter = 0) {
         if (stream_count == 0 || now_ms - last_ms > 500) {
             stream_count = 0;
@@ -142,6 +142,32 @@ struct IntervalStats {
 };
 
 } // namespace profiling
+
+#ifdef SERVO_REFERENCE_TRACE
+struct ServoReferenceSample {
+    uint32_t tick;
+    float reference_position, reference_velocity, measured_position, measured_velocity;
+};
+inline volatile ServoReferenceSample servo_reference_trace[64]{};
+inline volatile uint32_t servo_reference_trace_count = 0;
+inline uint32_t servo_reference_trace_tick = 0;
+// Eight samples/s on the 40 kHz control clock; read the ring after stopping.
+#define VB_PROFILE_REFERENCE_TRACE(state_expr, position_expr, velocity_expr, clock_tick) do { \
+    if (servo_reference_trace_count == 0 || uint32_t((clock_tick) - servo_reference_trace_tick) >= 5000U) { \
+        const auto reference_state = (state_expr); \
+        auto& sample = servo_reference_trace[servo_reference_trace_count & 63U]; \
+        sample.tick = (clock_tick); \
+        sample.reference_position = reference_state.position; \
+        sample.reference_velocity = reference_state.velocity; \
+        sample.measured_position = (position_expr); \
+        sample.measured_velocity = (velocity_expr); \
+        servo_reference_trace_tick = (clock_tick); \
+        servo_reference_trace_count = servo_reference_trace_count + 1; \
+    } \
+} while (false);
+#else
+#define VB_PROFILE_REFERENCE_TRACE(state, position, velocity, tick)
+#endif
 
 #ifdef FOC_PROFILE
 struct ServoScheduleProfile {
