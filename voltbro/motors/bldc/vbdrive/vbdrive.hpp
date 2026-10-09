@@ -368,28 +368,23 @@ public:
         }
 
         void update() override {
+            if (!_is_on) {
+                FOC::update_sensors();
+            } else if (is_bootstrap_charging(HAL_GetTick())) {
+                FOC::update_sensors();
+                force_bootstrap_charge();
+            } else {
+                FOC::update();
+            }
+
+            // Poll after writing PWM, including while off or charging bootstrap.
             static uint32_t iteration = 0;
             static uint32_t inductive_update_counter = 0;
-            // Per datasheet, maximum "temporal frequency" of this encoder is ~4.63 kHz
-            // Because datasheet specifies the "Position DSP Update Rate tPER" as 216 µs.
+            // Encoder DSP period is 216 us (~4.63 kHz maximum update rate).
             EACH_N(iteration, inductive_update_counter, 9, {
                 inductive_sensor.update();
             })
             iteration += 1;
-
-            if (!_is_on) {
-                FOC::update_sensors();
-                return;
-            }
-
-            const uint32_t now_ms = HAL_GetTick();
-            if (is_bootstrap_charging(now_ms)) {
-                FOC::update_sensors();
-                force_bootstrap_charge();
-                return;
-            }
-
-            FOC::update();
         }
 
         // for logging
